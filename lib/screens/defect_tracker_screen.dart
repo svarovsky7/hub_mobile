@@ -4,6 +4,7 @@ import '../models/defect.dart';
 import '../models/claim.dart';
 import '../models/project.dart';
 import '../services/database_service.dart';
+import '../widgets/loading_skeleton.dart';
 
 class DefectTrackerScreen extends StatefulWidget {
   const DefectTrackerScreen({super.key});
@@ -44,14 +45,17 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
   // Загрузка начальных данных
   Future<void> loadInitialData() async {
     setState(() => isLoading = true);
-    
+
     try {
-      // Загружаем проекты
-      projects = await DatabaseService.getProjects();
-      
-      // Загружаем типы дефектов и статусы
-      defectTypes = await DatabaseService.getDefectTypes();
-      defectStatuses = await DatabaseService.getDefectStatuses();
+      final results = await Future.wait([
+        DatabaseService.getProjects(),
+        DatabaseService.getDefectTypes(),
+        DatabaseService.getDefectStatuses(),
+      ]);
+
+      projects = results[0] as List<Project>;
+      defectTypes = results[1] as List<DefectType>;
+      defectStatuses = results[2] as List<DefectStatus>;
       
       if (projects.isNotEmpty) {
         selectedProject = projects.first;
@@ -304,11 +308,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const LoadingSkeleton();
     }
 
     if (selectedProject == null) {
