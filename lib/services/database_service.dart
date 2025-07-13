@@ -19,9 +19,14 @@ class DatabaseService {
           .timeout(const Duration(seconds: 10));
 
       print('Successfully fetched ${(response as List).length} projects');
-      return (response as List)
+      final projects = (response as List)
           .map((project) => Legacy.Project.fromJson(project))
           .toList();
+      
+      // Сортируем проекты по имени
+      projects.sort((a, b) => a.name.compareTo(b.name));
+      
+      return projects;
     } catch (e) {
       print('Error fetching projects: $e');
       // Return some mock data for testing when connection fails
@@ -77,10 +82,27 @@ class DatabaseService {
         }
       }
 
-      // Преобразуем в список и сортируем числовой сортировкой
+      // Преобразуем в список и сортируем: сначала числа, потом текст
       final buildings = buildingsSet.toList();
       buildings.sort((a, b) {
-        // Создаем функцию для извлечения числа и префикса из строки
+        // Проверяем, является ли строка чисто числовой
+        bool isNumericOnly(String s) {
+          return RegExp(r'^\d+$').hasMatch(s.trim());
+        }
+        
+        final aIsNumeric = isNumericOnly(a);
+        final bIsNumeric = isNumericOnly(b);
+        
+        // Если обе строки - чисто числовые
+        if (aIsNumeric && bIsNumeric) {
+          return int.parse(a).compareTo(int.parse(b));
+        }
+        
+        // Если только одна строка числовая - она идет первой
+        if (aIsNumeric && !bIsNumeric) return -1;
+        if (!aIsNumeric && bIsNumeric) return 1;
+        
+        // Если обе строки содержат текст, применяем умную сортировку
         RegExpMatch? getNumberPart(String s) {
           return RegExp(r'(\d+)').firstMatch(s);
         }
@@ -98,16 +120,9 @@ class DatabaseService {
           if (numberComparison != 0) {
             return numberComparison;
           }
-          
-          // Если числа одинаковые, сравниваем строки полностью (для случаев 1А, 1Б)
-          return a.compareTo(b);
         }
         
-        // Если числа есть только в одной строке, она идет первой
-        if (matchA != null && matchB == null) return -1;
-        if (matchA == null && matchB != null) return 1;
-        
-        // Если в обеих строках нет чисел, сравниваем как строки
+        // В остальных случаях сравниваем как строки
         return a.compareTo(b);
       });
       

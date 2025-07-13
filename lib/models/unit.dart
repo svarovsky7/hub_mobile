@@ -71,18 +71,35 @@ class Unit {
     );
   }
 
-  // Статус юнита по дефектам
+  // Статус юнита по дефектам (на основе наименьшего ID статуса)
   UnitStatus getStatus() {
     if (defects.isEmpty) return UnitStatus.noDefects;
     
-    final hasNew = defects.any((d) => d.statusId == 1);
-    final hasInProgress = defects.any((d) => d.statusId == 2);
-    final allCompleted = defects.every((d) => d.statusId == 3 || d.statusId == 4);
+    // Находим наименьший (самый критичный) статус среди всех дефектов
+    final statusIds = defects
+        .where((d) => d.statusId != null)
+        .map((d) => d.statusId!)
+        .toList();
     
-    if (hasNew) return UnitStatus.hasNew;
-    if (hasInProgress) return UnitStatus.inProgress;
-    if (allCompleted) return UnitStatus.completed;
-    return UnitStatus.hasDefects;
+    if (statusIds.isEmpty) return UnitStatus.noDefects;
+    
+    final minStatusId = statusIds.reduce((a, b) => a < b ? a : b);
+    
+    // Маппим статус дефекта на статус юнита
+    switch (minStatusId) {
+      case 1: // Получен
+        return UnitStatus.hasNew;
+      case 2: // В работе
+        return UnitStatus.inProgress;
+      case 3: // Устранен
+        return UnitStatus.completed;
+      case 4: // Отклонен
+        return UnitStatus.rejected;
+      case 9: // На проверку
+        return UnitStatus.onReview;
+      default:
+        return UnitStatus.hasDefects;
+    }
   }
 }
 
@@ -91,5 +108,7 @@ enum UnitStatus {
   hasNew,
   inProgress,
   completed,
+  rejected,
+  onReview,
   hasDefects,
 }

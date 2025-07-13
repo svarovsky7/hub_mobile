@@ -17,7 +17,12 @@ class BuildingUnitsPage extends StatelessWidget {
     required this.onBuildingChanged,
     required this.onUnitTap,
     required this.onRefresh,
+    required this.onToggleShowOnlyDefects,
+    required this.defectTypes,
+    required this.onDefectTypeChanged,
     this.showOnlyDefects = false,
+    this.statusColors = const {},
+    this.selectedDefectType,
   });
 
   final List<Project> projects;
@@ -29,7 +34,12 @@ class BuildingUnitsPage extends StatelessWidget {
   final Function(String) onBuildingChanged;
   final Function(Unit) onUnitTap;
   final VoidCallback onRefresh;
+  final VoidCallback onToggleShowOnlyDefects;
   final bool showOnlyDefects;
+  final Map<int, String> statusColors;
+  final List<dynamic> defectTypes;
+  final Function(int?) onDefectTypeChanged;
+  final int? selectedDefectType;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +64,9 @@ class BuildingUnitsPage extends StatelessWidget {
           // Content
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              physics: const AlwaysScrollableScrollPhysics(),
+              clipBehavior: Clip.hardEdge,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -84,11 +96,11 @@ class BuildingUnitsPage extends StatelessWidget {
           ],
         ),
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
         ),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       child: Column(
         children: [
           // Project and building selectors
@@ -104,22 +116,29 @@ class BuildingUnitsPage extends StatelessWidget {
                           selectedProject!.buildings.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         _buildBuildingSelector(theme, context),
+                        const SizedBox(height: 8),
+                        _buildDefectTypeSelector(theme, context),
                       ],
                     ],
                   ),
                 ),
               ),
               IconButton(
-                onPressed: onRefresh,
-                icon: const Icon(Icons.refresh, color: Colors.white),
+                onPressed: onToggleShowOnlyDefects,
+                icon: Icon(
+                  showOnlyDefects ? Icons.filter_alt : Icons.filter_alt_outlined,
+                  color: Colors.white,
+                ),
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundColor: showOnlyDefects 
+                      ? Colors.orange.withOpacity(0.8)
+                      : Colors.white.withOpacity(0.2),
                 ),
               ),
             ],
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           // Statistics
           Row(
@@ -150,7 +169,7 @@ class BuildingUnitsPage extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showProjectSelector(context, theme),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
@@ -160,11 +179,11 @@ class BuildingUnitsPage extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'ЖК "${selectedProject?.name ?? 'Выберите проект'}"',
+                selectedProject?.name ?? 'Выберите проект',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -182,7 +201,7 @@ class BuildingUnitsPage extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showBuildingSelector(context, theme),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
@@ -192,17 +211,17 @@ class BuildingUnitsPage extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Корпус ${selectedBuilding ?? 'Выберите корпус'}',
+                selectedBuilding ?? 'Выберите корпус',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.8),
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
             ),
             Icon(
               Icons.arrow_drop_down,
               color: Colors.white.withOpacity(0.8),
-              size: 20,
+              size: 18,
             ),
           ],
         ),
@@ -210,12 +229,60 @@ class BuildingUnitsPage extends StatelessWidget {
     );
   }
 
+  Widget _buildDefectTypeSelector(ThemeData theme, BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showDefectTypeSelector(context, theme),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _getDefectTypeName(),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_drop_down,
+              color: Colors.white.withOpacity(0.8),
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getDefectTypeName() {
+    if (selectedDefectType == null) {
+      return 'Все типы дефектов';
+    }
+    
+    try {
+      final defectType = defectTypes.firstWhere(
+        (type) => type.id == selectedDefectType,
+        orElse: () => null,
+      );
+      return defectType?.name ?? 'Все типы дефектов';
+    } catch (e) {
+      return 'Все типы дефектов';
+    }
+  }
+
   Widget _buildStatCard(String value, String label, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
@@ -223,15 +290,15 @@ class BuildingUnitsPage extends StatelessWidget {
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
             ),
           ),
           Text(
             label,
             style: TextStyle(
               color: Colors.white.withOpacity(0.8),
-              fontSize: 12,
+              fontSize: 9,
             ),
           ),
         ],
@@ -253,15 +320,51 @@ class BuildingUnitsPage extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: [
-            _buildLegendItem('Без дефектов', theme.colorScheme.surfaceVariant),
-            _buildLegendItem('Новые дефекты', theme.colorScheme.errorContainer),
-            _buildLegendItem('В работе', Colors.amber.shade100),
-            _buildLegendItem('Устранено', theme.colorScheme.primaryContainer),
-          ],
+          children: _buildLegendItems(theme),
         ),
       ],
     );
+  }
+
+  List<Widget> _buildLegendItems(ThemeData theme) {
+    final items = <Widget>[];
+    
+    // Без дефектов
+    items.add(_buildLegendItem('Без дефектов', theme.colorScheme.surfaceVariant));
+    
+    // Динамические статусы из базы
+    final statusData = [
+      (1, 'Получен'),
+      (2, 'В работе'),
+      (9, 'На проверку'),
+      (3, 'Устранен'),
+      (4, 'Отклонен'),
+    ];
+    
+    for (final (statusId, label) in statusData) {
+      Color color;
+      if (statusColors.containsKey(statusId)) {
+        final colorHex = statusColors[statusId]!;
+        color = Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
+      } else {
+        // Fallback цвета
+        color = _getFallbackColor(statusId);
+      }
+      items.add(_buildLegendItem(label, color));
+    }
+    
+    return items;
+  }
+  
+  Color _getFallbackColor(int statusId) {
+    switch (statusId) {
+      case 1: return const Color(0xFFEF4444);
+      case 2: return const Color(0xFFF59E0B);
+      case 3: return const Color(0xFF10B981);
+      case 4: return const Color(0xFF6B7280);
+      case 9: return const Color(0xFF3B82F6);
+      default: return Colors.grey;
+    }
   }
 
   Widget _buildLegendItem(String label, Color color) {
@@ -322,7 +425,9 @@ class BuildingUnitsPage extends StatelessWidget {
             border: Border.all(color: theme.colorScheme.outline),
           ),
           child: Column(
-            children: floors.map((floor) => _buildFloorRow(floor, unitsByFloor[floor]!)).toList(),
+            children: floors.map((floor) => RepaintBoundary(
+              child: _buildFloorRow(floor, unitsByFloor[floor]!)
+            )).toList(),
           ),
         ),
       ],
@@ -332,9 +437,19 @@ class BuildingUnitsPage extends StatelessWidget {
   Widget _buildFloorRow(int floor, List<Unit> floorUnits) {
     floorUnits.sort((a, b) => a.name.compareTo(b.name));
     
-    final filteredUnits = showOnlyDefects
-        ? floorUnits.where((unit) => unit.defects.isNotEmpty).toList()
-        : floorUnits;
+    final filteredUnits = floorUnits.where((unit) {
+      // Фильтр по наличию дефектов
+      if (showOnlyDefects && unit.defects.isEmpty) {
+        return false;
+      }
+      
+      // Фильтр по типу дефекта
+      if (selectedDefectType != null) {
+        return unit.defects.any((defect) => defect.typeId == selectedDefectType);
+      }
+      
+      return true;
+    }).toList();
 
     if (filteredUnits.isEmpty) {
       return const SizedBox.shrink();
@@ -369,6 +484,8 @@ class BuildingUnitsPage extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              clipBehavior: Clip.hardEdge,
               child: Row(
                 children: filteredUnits
                     .map((unit) => Padding(
@@ -376,6 +493,7 @@ class BuildingUnitsPage extends StatelessWidget {
                           child: UnitTile(
                             unit: unit,
                             onTap: () => onUnitTap(unit),
+                            statusColors: statusColors,
                           ),
                         ))
                     .toList(),
@@ -503,7 +621,7 @@ class BuildingUnitsPage extends StatelessWidget {
                   final isSelected = selectedBuilding == building;
                   
                   return ListTile(
-                    title: Text('Корпус $building'),
+                    title: Text(building),
                     trailing: isSelected 
                         ? Icon(Icons.check, color: theme.colorScheme.primary)
                         : null,
@@ -513,6 +631,75 @@ class BuildingUnitsPage extends StatelessWidget {
                     },
                   );
                 },
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDefectTypeSelector(BuildContext context, ThemeData theme) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text(
+                    'Выберите тип дефекта',
+                    style: theme.textTheme.titleLarge,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  // Опция "Все типы дефектов"
+                  ListTile(
+                    title: const Text('Все типы дефектов'),
+                    trailing: selectedDefectType == null 
+                        ? Icon(Icons.check, color: theme.colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      onDefectTypeChanged(null);
+                    },
+                  ),
+                  // Типы дефектов из БД
+                  ...defectTypes.map<Widget>((defectType) {
+                    final isSelected = selectedDefectType == defectType.id;
+                    
+                    return ListTile(
+                      title: Text(defectType.name),
+                      trailing: isSelected 
+                          ? Icon(Icons.check, color: theme.colorScheme.primary)
+                          : null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        onDefectTypeChanged(defectType.id);
+                      },
+                    );
+                  }).toList(),
+                ],
               ),
             ),
             SizedBox(height: MediaQuery.of(context).padding.bottom),

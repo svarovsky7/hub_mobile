@@ -52,13 +52,19 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
   ) async {
     final currentState = state;
     if (currentState is! ProjectStateLoaded) return;
-
-    emit(const ProjectStateLoading());
     
     try {
+      // Сначала обновляем выбранный проект без зданий
+      emit(currentState.copyWith(
+        selectedProject: event.project,
+        selectedBuilding: null,
+      ));
+      
+      // Затем загружаем здания
       final buildings = await _repository.getBuildingsForProject(event.project.id);
       final projectWithBuildings = event.project.copyWith(buildings: buildings);
       
+      // Обновляем с полными данными
       emit(currentState.copyWith(
         selectedProject: projectWithBuildings,
         selectedBuilding: buildings.isNotEmpty ? buildings.first : null,

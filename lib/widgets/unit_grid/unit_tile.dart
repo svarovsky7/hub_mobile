@@ -8,12 +8,14 @@ class UnitTile extends StatelessWidget {
     required this.onTap,
     this.width = 60,
     this.height = 48,
+    this.statusColors = const {},
   });
 
   final Unit unit;
   final VoidCallback onTap;
   final double width;
   final double height;
+  final Map<int, String> statusColors;
 
   @override
   Widget build(BuildContext context) {
@@ -110,47 +112,72 @@ class UnitTile extends StatelessWidget {
   }
 
   Color _getUnitColor(UnitStatus status, ThemeData theme) {
+    if (status == UnitStatus.noDefects) {
+      return theme.colorScheme.surfaceVariant;
+    }
+    
+    // Получаем цвет из statusColors если доступен
+    final statusId = _getStatusId(status);
+    if (statusId != null && statusColors.containsKey(statusId)) {
+      final colorHex = statusColors[statusId]!;
+      return Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
+    }
+    
+    // Fallback цвета если нет в базе
     switch (status) {
-      case UnitStatus.noDefects:
-        return theme.colorScheme.surfaceVariant;
       case UnitStatus.hasNew:
-        return theme.colorScheme.errorContainer;
+        return const Color(0xFFEF4444);
       case UnitStatus.inProgress:
-        return Colors.amber.shade100;
+        return const Color(0xFFF59E0B);
       case UnitStatus.completed:
-        return theme.colorScheme.primaryContainer;
+        return const Color(0xFF10B981);
+      case UnitStatus.rejected:
+        return const Color(0xFF6B7280);
+      case UnitStatus.onReview:
+        return const Color(0xFF3B82F6);
       default:
         return theme.colorScheme.surface;
     }
   }
-
-  Color _getUnitBorderColor(UnitStatus status, ThemeData theme) {
+  
+  int? _getStatusId(UnitStatus status) {
     switch (status) {
-      case UnitStatus.noDefects:
-        return theme.colorScheme.outline;
       case UnitStatus.hasNew:
-        return theme.colorScheme.error;
+        return 1;
       case UnitStatus.inProgress:
-        return Colors.amber.shade400;
+        return 2;
       case UnitStatus.completed:
-        return theme.colorScheme.primary;
+        return 3;
+      case UnitStatus.rejected:
+        return 4;
+      case UnitStatus.onReview:
+        return 9;
       default:
-        return theme.colorScheme.outline;
+        return null;
     }
   }
 
-  Color _getUnitTextColor(UnitStatus status, ThemeData theme) {
-    switch (status) {
-      case UnitStatus.noDefects:
-        return theme.colorScheme.onSurfaceVariant;
-      case UnitStatus.hasNew:
-        return theme.colorScheme.onErrorContainer;
-      case UnitStatus.inProgress:
-        return Colors.amber.shade800;
-      case UnitStatus.completed:
-        return theme.colorScheme.onPrimaryContainer;
-      default:
-        return theme.colorScheme.onSurface;
+  Color _getUnitBorderColor(UnitStatus status, ThemeData theme) {
+    if (status == UnitStatus.noDefects) {
+      return theme.colorScheme.outline;
     }
+    
+    // Используем более темную версию основного цвета
+    final baseColor = _getUnitColor(status, theme);
+    return Color.fromARGB(
+      baseColor.alpha,
+      (baseColor.red * 0.8).round(),
+      (baseColor.green * 0.8).round(),
+      (baseColor.blue * 0.8).round(),
+    );
+  }
+
+  Color _getUnitTextColor(UnitStatus status, ThemeData theme) {
+    if (status == UnitStatus.noDefects) {
+      return theme.colorScheme.onSurfaceVariant;
+    }
+    
+    // Белый текст на цветном фоне для лучшей читаемости
+    return Colors.white;
   }
 }

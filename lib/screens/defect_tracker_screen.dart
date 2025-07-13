@@ -92,49 +92,64 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
 
   // Получить цвет юнита
   Color getUnitColor(UnitStatus status) {
+    final theme = Theme.of(context);
     switch (status) {
       case UnitStatus.noDefects:
-        return Colors.grey.shade100;
+        return theme.colorScheme.surfaceVariant;
       case UnitStatus.hasNew:
-        return Colors.red.shade100;
+        return const Color(0xFFEF4444); // Красный - Получен
       case UnitStatus.inProgress:
-        return Colors.yellow.shade100;
+        return const Color(0xFFF59E0B); // Оранжевый - В работе
       case UnitStatus.completed:
-        return Colors.green.shade100;
+        return const Color(0xFF10B981); // Зеленый - Устранен
+      case UnitStatus.rejected:
+        return const Color(0xFF6B7280); // Серый - Отклонен
+      case UnitStatus.onReview:
+        return const Color(0xFF3B82F6); // Синий - На проверку
       default:
-        return Colors.blue.shade100;
+        return theme.colorScheme.surface;
     }
   }
 
   // Получить цвет границы юнита
   Color getUnitBorderColor(UnitStatus status) {
+    final theme = Theme.of(context);
     switch (status) {
       case UnitStatus.noDefects:
-        return Colors.grey.shade300;
+        return theme.colorScheme.outline;
       case UnitStatus.hasNew:
-        return Colors.red.shade400;
+        return const Color(0xFFDC2626); // Темно-красный
       case UnitStatus.inProgress:
-        return Colors.yellow.shade400;
+        return const Color(0xFFD97706); // Темно-оранжевый
       case UnitStatus.completed:
-        return Colors.green.shade400;
+        return const Color(0xFF059669); // Темно-зеленый
+      case UnitStatus.rejected:
+        return const Color(0xFF4B5563); // Темно-серый
+      case UnitStatus.onReview:
+        return const Color(0xFF2563EB); // Темно-синий
       default:
-        return Colors.blue.shade400;
+        return theme.colorScheme.outline;
     }
   }
 
   // Получить цвет текста юнита
   Color getUnitTextColor(UnitStatus status) {
+    final theme = Theme.of(context);
     switch (status) {
       case UnitStatus.noDefects:
-        return Colors.grey.shade700;
+        return theme.colorScheme.onSurfaceVariant;
       case UnitStatus.hasNew:
-        return Colors.red.shade800;
+        return Colors.white; // Белый текст на красном фоне
       case UnitStatus.inProgress:
-        return Colors.yellow.shade800;
+        return Colors.white; // Белый текст на оранжевом фоне
       case UnitStatus.completed:
-        return Colors.green.shade800;
+        return Colors.white; // Белый текст на зеленом фоне
+      case UnitStatus.rejected:
+        return Colors.white; // Белый текст на сером фоне
+      case UnitStatus.onReview:
+        return Colors.white; // Белый текст на синем фоне
       default:
-        return Colors.blue.shade800;
+        return theme.colorScheme.onSurface;
     }
   }
 
@@ -409,7 +424,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                               return DropdownMenuItem<int>(
                                 value: project.id,
                                 child: Text(
-                                  'ЖК "${project.name}"',
+                                  project.name,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
@@ -451,7 +466,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                                 return DropdownMenuItem<String>(
                                   value: building,
                                   child: Text(
-                                    'Корпус $building',
+                                    building,
                                     style: TextStyle(
                                       color: Colors.blue.shade100,
                                       fontSize: 14,
@@ -495,10 +510,10 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
                         children: [
@@ -506,7 +521,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                             '${stats['totalUnits']}',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 24,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -514,20 +529,20 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                             'Квартир',
                             style: TextStyle(
                               color: Colors.blue.shade100,
-                              fontSize: 12,
+                              fontSize: 10,
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
                         children: [
@@ -535,7 +550,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                             '${stats['unitsWithDefects']}',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 24,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -543,7 +558,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                             'С дефектами',
                             style: TextStyle(
                               color: Colors.blue.shade100,
-                              fontSize: 12,
+                              fontSize: 10,
                             ),
                           ),
                         ],
@@ -558,7 +573,9 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            physics: const AlwaysScrollableScrollPhysics(),
+            clipBehavior: Clip.hardEdge,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -575,10 +592,12 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildStatusLegend('Без дефектов', Colors.grey.shade100, Colors.grey.shade300),
-                    _buildStatusLegend('Новые дефекты', Colors.red.shade100, Colors.red.shade400),
-                    _buildStatusLegend('В работе', Colors.yellow.shade100, Colors.yellow.shade400),
-                    _buildStatusLegend('Устранено', Colors.green.shade100, Colors.green.shade400),
+                    _buildStatusLegend('Без дефектов', Theme.of(context).colorScheme.surfaceVariant, Theme.of(context).colorScheme.outline),
+                    _buildStatusLegend('Получен', const Color(0xFFEF4444), const Color(0xFFDC2626)),
+                    _buildStatusLegend('В работе', const Color(0xFFF59E0B), const Color(0xFFD97706)),
+                    _buildStatusLegend('На проверку', const Color(0xFF3B82F6), const Color(0xFF2563EB)),
+                    _buildStatusLegend('Устранен', const Color(0xFF10B981), const Color(0xFF059669)),
+                    _buildStatusLegend('Отклонен', const Color(0xFF6B7280), const Color(0xFF4B5563)),
                   ],
                 ),
                 
@@ -679,7 +698,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                           ),
                         ),
                         Text(
-                          '${selectedUnit?.floor} этаж • ЖК "${selectedProject?.name ?? ''}" • $selectedBuilding',
+                          '${selectedUnit?.floor} этаж • ${selectedProject?.name ?? ''} • $selectedBuilding',
                           style: TextStyle(
                             color: Colors.blue.shade100,
                             fontSize: 14,
@@ -1099,8 +1118,9 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         final floorUnits = unitsByFloor[floor]!;
         floorUnits.sort((a, b) => a.name.compareTo(b.name));
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+        return RepaintBoundary(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             children: [
               Container(
@@ -1125,6 +1145,8 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  clipBehavior: Clip.hardEdge,
                   child: Row(
                     children: floorUnits.map((unit) {
                       final status = unit.getStatus();
@@ -1190,6 +1212,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
               ),
             ],
           ),
+        ),
         );
       }).toList(),
     );
@@ -1233,7 +1256,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                       ),
                     ),
                     Text(
-                      'Квартира ${selectedUnit?.name} • ЖК "${selectedProject?.name ?? ''}" • $selectedBuilding',
+                      'Квартира ${selectedUnit?.name} • ${selectedProject?.name ?? ''} • $selectedBuilding',
                       style: TextStyle(
                         color: Colors.green.shade100,
                         fontSize: 14,

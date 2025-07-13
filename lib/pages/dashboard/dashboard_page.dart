@@ -41,6 +41,9 @@ class _DashboardPageState extends State<DashboardPage> {
   List<Map<String, dynamic>> _brigades = [];
   List<Map<String, dynamic>> _contractors = [];
   bool _isLoadingData = false;
+  bool _showOnlyDefects = false;
+  Map<int, String> _statusColors = {};
+  int? _selectedDefectType;
 
   @override
   void initState() {
@@ -56,8 +59,54 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: BlocBuilder<ProjectBloc, ProjectState>(
-          builder: (context, state) {
+        child: BlocListener<ProjectBloc, ProjectState>(
+          listenWhen: (previous, current) {
+            // Слушаем только значимые изменения
+            if (previous is ProjectStateLoaded && current is ProjectStateLoaded) {
+              final projectChanged = previous.selectedProject?.id != current.selectedProject?.id;
+              final buildingChanged = previous.selectedBuilding != current.selectedBuilding;
+              
+              // Избегаем лишних срабатываний при одинаковых значениях
+              if (!projectChanged && !buildingChanged) return false;
+              
+              return projectChanged || buildingChanged;
+            }
+            // Слушаем только первый переход в loaded состояние
+            return current is ProjectStateLoaded && previous is ProjectStateInitial;
+          },
+          listener: (context, state) {
+            if (state is ProjectStateLoaded) {
+              // Только при смене проекта возвращаемся к главному экрану
+              if (_currentView != DashboardView.home) {
+                setState(() {
+                  _currentView = DashboardView.home;
+                });
+              }
+              
+              if (state.selectedProject != null && state.selectedBuilding != null) {
+                _loadUnits(state.selectedProject!.id, state.selectedBuilding!);
+              } else {
+                // Очищаем юниты если нет выбранного проекта или корпуса
+                if (_units.isNotEmpty || _selectedUnit != null) {
+                  setState(() {
+                    _units = [];
+                    _selectedUnit = null;
+                  });
+                }
+              }
+            }
+          },
+          child: BlocBuilder<ProjectBloc, ProjectState>(
+            buildWhen: (previous, current) {
+              // Перестраиваем только при смене типа состояния или значимых изменениях
+              return previous.runtimeType != current.runtimeType ||
+                     (previous is ProjectStateLoaded && 
+                      current is ProjectStateLoaded &&
+                      (previous.projects != current.projects ||
+                       previous.selectedProject?.id != current.selectedProject?.id ||
+                       previous.selectedBuilding != current.selectedBuilding));
+            },
+            builder: (context, state) {
             if (state is ProjectStateInitial) {
               return const Center(child: CircularProgressIndicator());
             } else if (state is ProjectStateLoading) {
@@ -85,6 +134,7 @@ class _DashboardPageState extends State<DashboardPage> {
             return const SizedBox.shrink();
           },
         ),
+        ),
       ),
     );
   }
@@ -109,6 +159,12 @@ class _DashboardPageState extends State<DashboardPage> {
             onBuildingChanged: _onBuildingChanged,
             onUnitTap: _onUnitTap,
             onRefresh: _onRefresh,
+            onToggleShowOnlyDefects: _onToggleShowOnlyDefects,
+            showOnlyDefects: _showOnlyDefects,
+            statusColors: _statusColors,
+            defectTypes: _defectTypes,
+            onDefectTypeChanged: _onDefectTypeChanged,
+            selectedDefectType: _selectedDefectType,
           )
         else if (_currentView == DashboardView.apartment &&
             selectedProject != null &&
@@ -198,7 +254,12 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onProjectChanged(Project project) {
     context.read<ProjectBloc>().add(ProjectEventSelectProject(project));
-    _loadUnits(project.id, null);
+    // Автоматически выбираем первый корпус, если он есть
+    if (project.buildings.isNotEmpty) {
+      final firstBuilding = project.buildings.first;
+      context.read<ProjectBloc>().add(ProjectEventSelectBuilding(firstBuilding));
+      _loadUnits(project.id, firstBuilding);
+    }
   }
 
   void _onBuildingChanged(String building) {
@@ -221,10 +282,32 @@ class _DashboardPageState extends State<DashboardPage> {
     context.read<ProjectBloc>().add(const ProjectEventRefresh());
   }
 
-  Future<void> _loadUnits(int projectId, String? building) async {
-    if (building == null) return;
+  void _onToggleShowOnlyDefects() {
+    setState(() {
+      _showOnlyDefects = !_showOnlyDefects;
+    });
+  }
 
-    setState(() => _isLoadingUnits = true);
+  void _onDefectTypeChanged(int? defectTypeId) {
+    setState(() {
+      _selectedDefectType = defectTypeId;
+    });
+  }
+
+  Future<void> _loadUnits(int projectId, String? building) async {
+    if (building == null) {
+      setState(() {
+        _units = [];
+        _selectedUnit = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingUnits = true;
+      _units = []; // Очищаем предыдущие юниты
+      _selectedUnit = null; // Сбрасываем выбранный юнит
+    });
 
     try {
       final result = await DatabaseService.getUnitsWithDefectsForBuilding(
@@ -261,6 +344,12 @@ class _DashboardPageState extends State<DashboardPage> {
         _defectStatuses = results[1] as List<Legacy.DefectStatus>;
         _brigades = results[2] as List<Map<String, dynamic>>;
         _contractors = results[3] as List<Map<String, dynamic>>;
+        
+        // Создаем карту цветов по ID статуса
+        _statusColors = {};
+        for (final status in _defectStatuses) {
+          _statusColors[status.id] = status.color;
+        }
       });
     } catch (e) {
       if (mounted) {
