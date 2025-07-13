@@ -40,6 +40,15 @@ dependencies:
   
   # Environment variables
   flutter_dotenv: ^5.2.1
+  
+  # File picker for attachments
+  file_picker: ^8.1.2
+  
+  # Image picker for camera/gallery
+  image_picker: ^1.1.2
+  
+  # URL launcher for opening files
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

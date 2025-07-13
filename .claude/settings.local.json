@@ -7,7 +7,9 @@
       "Bash(flutter analyze:*)",
       "Bash(ls:*)",
       "Bash(flutter:*)",
-      "Bash(/bin/bash -c \"flutter analyze\")"
+      "Bash(/bin/bash -c \"flutter analyze\")",
+      "Bash(/mnt/c/flutter/bin/flutter analyze)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
