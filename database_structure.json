@@ -1,0 +1,1885 @@
+[
+  {
+    "table_name": "attachments",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('attachments_id_seq'::regclass)"
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "path",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "mime_type",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "uploaded_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "storage_path",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "original_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "uploaded_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "attachments",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "brigades",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('brigades_id_seq'::regclass)"
+  },
+  {
+    "table_name": "brigades",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "brigades",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "brigades",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "claim_attachments",
+    "column_name": "claim_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claim_attachments",
+    "column_name": "attachment_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claim_defects",
+    "column_name": "claim_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claim_defects",
+    "column_name": "defect_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claim_defects",
+    "column_name": "pre_trial_claim",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "claim_links",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('claim_links_id_seq'::regclass)"
+  },
+  {
+    "table_name": "claim_links",
+    "column_name": "parent_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claim_links",
+    "column_name": "child_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claim_links",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "claim_units",
+    "column_name": "claim_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claim_units",
+    "column_name": "unit_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "claim_status_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "claim_no",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "claimed_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "accepted_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "registered_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "resolved_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "engineer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "claims",
+    "column_name": "updated_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "claims",
+    "column_name": "case_uid_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims",
+    "column_name": "pre_trial_claim",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "claims",
+    "column_name": "owner",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "claim_status_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "claim_no",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "claimed_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "accepted_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "registered_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "resolved_on",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "engineer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "updated_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "case_uid_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "pre_trial_claim",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "owner",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "project_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "status_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "status_color",
+    "data_type": "character varying",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "engineer_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "engineer_email",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "created_by_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "case_uid",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "attachments_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "units_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "defects_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "has_children",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "claims_summary",
+    "column_name": "has_parent",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "contractors",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('contractors_id_seq'::regclass)"
+  },
+  {
+    "table_name": "contractors",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "contractors",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "contractors",
+    "column_name": "inn",
+    "data_type": "character varying",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "contractors",
+    "column_name": "phone",
+    "data_type": "character varying",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "contractors",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "contractors",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_case_attachments",
+    "column_name": "court_case_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_attachments",
+    "column_name": "attachment_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claim_links",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('court_case_claim_links_id_seq'::regclass)"
+  },
+  {
+    "table_name": "court_case_claim_links",
+    "column_name": "case_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claim_links",
+    "column_name": "claim_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claim_links",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('court_case_claims_id_seq'::regclass)"
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "case_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "claim_type_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "claimed_amount",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "confirmed_amount",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "paid_amount",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "agreed_amount",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_case_claims",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_case_defects",
+    "column_name": "case_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_defects",
+    "column_name": "defect_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_links",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('court_case_links_id_seq'::regclass)"
+  },
+  {
+    "table_name": "court_case_links",
+    "column_name": "parent_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_links",
+    "column_name": "child_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_links",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_case_parties",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('court_case_parties_id_seq'::regclass)"
+  },
+  {
+    "table_name": "court_case_parties",
+    "column_name": "case_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_parties",
+    "column_name": "contractor_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_parties",
+    "column_name": "person_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_parties",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_parties",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_case_parties",
+    "column_name": "role",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_units",
+    "column_name": "court_case_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_case_units",
+    "column_name": "unit_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('court_cases_id_seq'::regclass)"
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "status",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "responsible_lawyer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "fix_start_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "fix_end_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "number",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "case_uid_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases",
+    "column_name": "total_claim_amount",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "status",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "responsible_lawyer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "fix_start_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "fix_end_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "number",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "case_uid_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "total_claim_amount",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "project_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "status_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "status_color",
+    "data_type": "character varying",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "lawyer_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "lawyer_email",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "case_uid",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "attachments_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "units_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "parties_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_summary",
+    "column_name": "claims_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "court_cases_uids",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('court_cases_uids_id_seq'::regclass)"
+  },
+  {
+    "table_name": "court_cases_uids",
+    "column_name": "uid",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "defect_attachments",
+    "column_name": "defect_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "defect_attachments",
+    "column_name": "attachment_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "defect_types",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('defect_types_id_seq'::regclass)"
+  },
+  {
+    "table_name": "defect_types",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('defects_id_seq'::regclass)"
+  },
+  {
+    "table_name": "defects",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "defects",
+    "column_name": "type_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "status_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "received_at",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "fixed_at",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "brigade_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "contractor_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "fixed_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "is_warranty",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "defects",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "unit_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "updated_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "defects",
+    "column_name": "engineer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "type_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "status_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "received_at",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "fixed_at",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "brigade_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "contractor_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "fixed_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "is_warranty",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "unit_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "updated_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "engineer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "project_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "unit_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "unit_building",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "unit_floor",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "type_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "status_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "status_color",
+    "data_type": "character varying",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "brigade_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "contractor_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "engineer_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "fixed_by_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "defects_summary",
+    "column_name": "attachments_count",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "lawsuit_claim_types",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('lawsuit_claim_types_id_seq'::regclass)"
+  },
+  {
+    "table_name": "lawsuit_claim_types",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letter_attachments",
+    "column_name": "letter_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letter_attachments",
+    "column_name": "attachment_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letter_links",
+    "column_name": "parent_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letter_links",
+    "column_name": "child_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letter_links",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "letter_links",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('letter_links_id_seq'::regclass)"
+  },
+  {
+    "table_name": "letter_types",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('letter_types_id_seq'::regclass)"
+  },
+  {
+    "table_name": "letter_types",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letter_units",
+    "column_name": "letter_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letter_units",
+    "column_name": "unit_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": "nextval('letters_id_seq'::regclass)"
+  },
+  {
+    "table_name": "letters",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "number",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "letter_type_id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "letter_date",
+    "data_type": "date",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "subject",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "letters",
+    "column_name": "responsible_user_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "content",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "status_id",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "sender_person_id",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "sender_contractor_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "receiver_person_id",
+    "data_type": "bigint",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "receiver_contractor_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "letters",
+    "column_name": "direction",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'incoming'::text"
+  },
+  {
+    "table_name": "letters",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "persons",
+    "column_name": "id",
+    "data_type": "bigint",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "persons",
+    "column_name": "full_name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "persons",
+    "column_name": "phone",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "persons",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "persons",
+    "column_name": "passport_series",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "persons",
+    "column_name": "passport_number",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "persons",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "role",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'USER'::text"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "profiles_projects",
+    "column_name": "profile_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "profiles_projects",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('projects_id_seq'::regclass)"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "role_permissions",
+    "column_name": "role_name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "role_permissions",
+    "column_name": "pages",
+    "data_type": "jsonb",
+    "is_nullable": "NO",
+    "column_default": "'[]'::jsonb"
+  },
+  {
+    "table_name": "role_permissions",
+    "column_name": "edit_tables",
+    "data_type": "jsonb",
+    "is_nullable": "NO",
+    "column_default": "'[]'::jsonb"
+  },
+  {
+    "table_name": "role_permissions",
+    "column_name": "delete_tables",
+    "data_type": "jsonb",
+    "is_nullable": "NO",
+    "column_default": "'[]'::jsonb"
+  },
+  {
+    "table_name": "role_permissions",
+    "column_name": "only_assigned_project",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "role_permissions",
+    "column_name": "can_lock_units",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "roles",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('roles_id_seq'::regclass)"
+  },
+  {
+    "table_name": "roles",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "statuses",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "statuses",
+    "column_name": "entity",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "statuses",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "statuses",
+    "column_name": "color",
+    "data_type": "character varying",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "unit_attachments",
+    "column_name": "unit_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "unit_attachments",
+    "column_name": "attachment_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "unit_sort_orders",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('unit_sort_orders_id_seq'::regclass)"
+  },
+  {
+    "table_name": "unit_sort_orders",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "unit_sort_orders",
+    "column_name": "building",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "unit_sort_orders",
+    "column_name": "floor",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "unit_sort_orders",
+    "column_name": "sort_direction",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "units",
+    "column_name": "id",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "nextval('units_id_seq'::regclass)"
+  },
+  {
+    "table_name": "units",
+    "column_name": "project_id",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "units",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "units",
+    "column_name": "building",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "units",
+    "column_name": "floor",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "units",
+    "column_name": "person_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "units",
+    "column_name": "locked",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  }
+]
