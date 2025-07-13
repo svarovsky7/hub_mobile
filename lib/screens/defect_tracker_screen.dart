@@ -2433,6 +2433,8 @@ class _StatusChangeDialogState extends State<_StatusChangeDialog> {
   void initState() {
     super.initState();
     selectedStatusId = widget.defect.statusId;
+    print('Initial selectedStatusId: $selectedStatusId');
+    print('Available statuses: ${widget.statuses.map((s) => '${s.id}:${s.name}').toList()}');
   }
 
   Future<void> _updateStatus() async {
@@ -2481,7 +2483,11 @@ class _StatusChangeDialogState extends State<_StatusChangeDialog> {
     for (final status in statuses) {
       uniqueStatusMap[status.id] = status;
     }
-    return uniqueStatusMap.values.toList();
+    final uniqueList = uniqueStatusMap.values.toList();
+    print('Original statuses count: ${statuses.length}');
+    print('Unique statuses count: ${uniqueList.length}');
+    print('Unique status IDs: ${uniqueList.map((s) => s.id).toList()}');
+    return uniqueList;
   }
 
   @override
@@ -2500,7 +2506,15 @@ class _StatusChangeDialogState extends State<_StatusChangeDialog> {
           const Text('Новый статус:'),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            value: selectedStatusId,
+            value: () {
+              final uniqueStatuses = _getUniqueStatuses(widget.statuses);
+              final validStatusIds = uniqueStatuses.map((s) => s.id).toSet();
+              if (selectedStatusId != null && validStatusIds.contains(selectedStatusId)) {
+                return selectedStatusId;
+              }
+              print('selectedStatusId $selectedStatusId not found in valid statuses, setting to null');
+              return null;
+            }(),
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
