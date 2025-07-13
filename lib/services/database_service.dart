@@ -26,19 +26,50 @@ class DatabaseService {
   // Получить все корпуса для проекта
   static Future<List<String>> getBuildingsForProject(int projectId) async {
     try {
-      final response = await _supabase
-          .from('units')
-          .select('building')
-          .eq('project_id', projectId)
-          .order('building');
+      print('Fetching buildings for project $projectId...');
+      
+      final buildingsSet = <String>{};
+      int offset = 0;
+      const limit = 1000;
+      bool hasMore = true;
+      
+      // Загружаем данные пачками пока не получим все
+      while (hasMore) {
+        final response = await _supabase
+            .from('units')
+            .select('building')
+            .eq('project_id', projectId)
+            .range(offset, offset + limit - 1);
 
-      final buildings = (response as List)
-          .map((unit) => unit['building'] as String?)
-          .where((building) => building != null)
-          .cast<String>()
-          .toSet()
-          .toList();
+        final List<dynamic> records = response as List;
+        print('Fetched ${records.length} unit records (offset: $offset)');
+        
+        if (records.isEmpty || records.length < limit) {
+          hasMore = false;
+        }
+        
+        // Добавляем уникальные корпуса
+        for (final unit in records) {
+          final building = unit['building'] as String?;
+          if (building != null && building.isNotEmpty) {
+            buildingsSet.add(building);
+          }
+        }
+        
+        offset += limit;
+        
+        // Защита от бесконечного цикла
+        if (offset > 10000) {
+          print('Reached maximum offset limit for safety');
+          break;
+        }
+      }
 
+      // Преобразуем в список и сортируем
+      final buildings = buildingsSet.toList();
+      buildings.sort((a, b) => a.compareTo(b));
+      
+      print('Unique buildings found for project $projectId: $buildings (total: ${buildings.length})');
       return buildings;
     } catch (e) {
       print('Error fetching buildings: $e');

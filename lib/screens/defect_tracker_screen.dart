@@ -23,6 +23,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
   Project? selectedProject;
   String? selectedBuilding;
   bool isLoading = true;
+  bool showOnlyDefects = false; // Фильтр для отображения только квартир с дефектами
   
   // Форма для нового дефекта
   final _descriptionController = TextEditingController();
@@ -34,6 +35,9 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
   List<DefectType> defectTypes = [];
   List<DefectStatus> defectStatuses = [];
   List<ClaimStatus> claimStatuses = [];
+  
+  // Контроллеры для горизонтальной прокрутки шахматки (один для каждого этажа)
+  final Map<int, ScrollController> _floorScrollControllers = {};
 
   @override
   void initState() {
@@ -55,13 +59,16 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
       
       if (projects.isNotEmpty) {
         selectedProject = projects.first;
+        print('Initial project selected: ${selectedProject!.name} (ID: ${selectedProject!.id})');
         
         // Загружаем корпуса для первого проекта
         final buildings = await DatabaseService.getBuildingsForProject(selectedProject!.id);
+        print('Initial buildings loaded: ${buildings.length} buildings: $buildings');
         selectedProject = selectedProject!.copyWith(buildings: buildings);
         
         if (buildings.isNotEmpty) {
           selectedBuilding = buildings.first;
+          print('Initial building selected: $selectedBuilding');
           await loadUnitsForCurrentSelection();
         }
       }
@@ -167,16 +174,20 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
     setState(() => isLoading = true);
     
     try {
+      print('Changing to project: ${project.name} (ID: ${project.id})');
       selectedProject = project;
       
       // Загружаем корпуса для нового проекта
       final buildings = await DatabaseService.getBuildingsForProject(project.id);
+      print('Loaded ${buildings.length} buildings: $buildings');
       selectedProject = selectedProject!.copyWith(buildings: buildings);
       
       if (buildings.isNotEmpty) {
         selectedBuilding = buildings.first;
+        print('Selected building: $selectedBuilding');
         await loadUnitsForCurrentSelection();
       } else {
+        print('No buildings found for project ${project.id}');
         selectedBuilding = null;
         units.clear();
       }
@@ -298,6 +309,11 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    // Освобождаем все контроллеры прокрутки этажей
+    for (final controller in _floorScrollControllers.values) {
+      controller.dispose();
+    }
+    _floorScrollControllers.clear();
     super.dispose();
   }
 
@@ -397,6 +413,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                             underline: Container(),
                             dropdownColor: Colors.blue.shade700,
                             isExpanded: true,
+                            menuMaxHeight: 300, // Добавляем прокрутку
                             onChanged: (int? newProjectId) {
                               if (newProjectId != null) {
                                 final newProject = projects.firstWhere((p) => p.id == newProjectId);
@@ -405,11 +422,12 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                                 }
                               }
                             },
-                            items: projects.map<DropdownMenuItem<int>>((Project project) {
+                            items: (projects.toList()..sort((a, b) => a.name.compareTo(b.name)))
+                              .map<DropdownMenuItem<int>>((Project project) {
                               return DropdownMenuItem<int>(
                                 value: project.id,
                                 child: Text(
-                                  'ЖК "${project.name}"',
+                                  project.name,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
@@ -442,16 +460,18 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                               underline: Container(),
                               dropdownColor: Colors.blue.shade700,
                               isExpanded: true,
+                              menuMaxHeight: 300, // Добавляем прокрутку
                               onChanged: (String? newBuilding) {
                                 if (newBuilding != null && newBuilding != selectedBuilding) {
                                   changeBuilding(newBuilding);
                                 }
                               },
-                              items: selectedProject!.buildings.map<DropdownMenuItem<String>>((String building) {
+                              items: (selectedProject!.buildings.toList()..sort((a, b) => a.compareTo(b)))
+                                .map<DropdownMenuItem<String>>((String building) {
                                 return DropdownMenuItem<String>(
                                   value: building,
                                   child: Text(
-                                    'Корпус $building',
+                                    building,
                                     style: TextStyle(
                                       color: Colors.blue.shade100,
                                       fontSize: 14,
@@ -479,6 +499,18 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                             ),
                           ),
                         ),
+                      // Кнопка фильтра
+                      IconButton(
+                        onPressed: () => setState(() => showOnlyDefects = !showOnlyDefects),
+                        icon: Icon(
+                          showOnlyDefects ? Icons.filter_alt : Icons.filter_alt_outlined,
+                          color: Colors.white,
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: showOnlyDefects ? Colors.orange.shade600 : Colors.blue.shade500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       IconButton(
                         onPressed: () => setState(() => showMenu = true),
                         icon: const Icon(Icons.menu, color: Colors.white),
@@ -581,21 +613,131 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                     _buildStatusLegend('Устранено', Colors.green.shade100, Colors.green.shade400),
                   ],
                 ),
+                const SizedBox(height: 12),
+                
+                // Пояснения по иконкам
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade600,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.lock,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Заблокированная квартира',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Text(
+                              '3',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Количество дефектов',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
                 
                 const SizedBox(height: 24),
                 
                 // Схема дома
-                const Text(
-                  'Схема дома',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'Схема дома',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (showOnlyDefects) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.filter_alt,
+                              size: 14,
+                              color: Colors.orange.shade700,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Только с дефектами',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 12),
                 
                 Container(
                   padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 100), // Добавляем отступ для нижней навигации
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -1094,104 +1236,195 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
       );
     }
 
-    return Column(
-      children: floors.map((floor) {
-        final floorUnits = unitsByFloor[floor]!;
-        floorUnits.sort((a, b) => a.name.compareTo(b.name));
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  shape: BoxShape.circle,
+    return Column(
+      children: [
+        // Заголовок с фиксированной колонкой этажей
+        Row(
+          children: [
+            Container(
+              width: 50,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: const Text(
+                'Этаж',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
                 ),
-                child: Center(
-                  child: Text(
-                    '$floor',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Квартиры',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 1),
+        const SizedBox(height: 8),
+        
+        // Этажи с прокруткой
+        ...floors.map((floor) {
+          final allFloorUnits = unitsByFloor[floor]!;
+          allFloorUnits.sort((a, b) => a.name.compareTo(b.name));
+          
+          // Применяем фильтр если нужно показывать только квартиры с дефектами
+          final floorUnits = showOnlyDefects 
+            ? allFloorUnits.where((unit) => unit.defects.isNotEmpty).toList()
+            : allFloorUnits;
+          
+          // Если после фильтрации нет квартир на этаже, не показываем этаж
+          if (floorUnits.isEmpty) {
+            return const SizedBox.shrink();
+          }
+
+          // Создаем контроллер для этого этажа, если еще не создан
+          if (!_floorScrollControllers.containsKey(floor)) {
+            _floorScrollControllers[floor] = ScrollController();
+          }
+          
+          final scrollController = _floorScrollControllers[floor]!;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                // Фиксированная колонка с номером этажа
+                Container(
+                  width: 50,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$floor',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: floorUnits.map((unit) {
-                      final status = unit.getStatus();
-                      final unitColor = getUnitColor(status);
-                      final borderColor = getUnitBorderColor(status);
-                      final textColor = getUnitTextColor(status);
+                const SizedBox(width: 12),
+                
+                // Прокручиваемая область с квартирами
+                Expanded(
+                  child: SizedBox(
+                    height: 56,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      controller: scrollController,
+                      child: Row(
+                        children: floorUnits.map((unit) {
+                          final status = unit.getStatus();
+                          final unitColor = getUnitColor(status);
+                          // Для заблокированных квартир используем ярко-красную рамку
+                          final borderColor = unit.locked ? Colors.red : getUnitBorderColor(status);
+                          final textColor = getUnitTextColor(status);
 
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: GestureDetector(
-                          onTap: () => openUnit(unit),
-                          child: Container(
-                            width: 60,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: unitColor,
-                              border: Border.all(color: borderColor, width: 2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Stack(
-                              children: [
-                                Center(
-                                  child: Text(
-                                    unit.name,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: textColor,
-                                    ),
-                                  ),
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => openUnit(unit),
+                              child: Container(
+                                width: 60,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: unitColor,
+                                  border: Border.all(color: borderColor, width: 2),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                if (unit.defects.isNotEmpty)
-                                  Positioned(
-                                    top: -4,
-                                    right: -4,
-                                    child: Container(
-                                      width: 18,
-                                      height: 18,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '${unit.defects.length}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: Text(
+                                        unit.name,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: textColor,
                                         ),
                                       ),
                                     ),
-                                  ),
-                              ],
+                                    // Замочек для заблокированных квартир
+                                    if (unit.locked)
+                                      Positioned(
+                                        top: -6,
+                                        left: -6,
+                                        child: Container(
+                                          width: 22,
+                                          height: 22,
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.shade600,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 2),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.3),
+                                                spreadRadius: 1,
+                                                blurRadius: 3,
+                                                offset: const Offset(0, 1),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.lock,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    // Счетчик дефектов
+                                    if (unit.defects.isNotEmpty)
+                                      Positioned(
+                                        top: -4,
+                                        right: -4,
+                                        child: Container(
+                                          width: 18,
+                                          height: 18,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '${unit.defects.length}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
     );
   }
 
