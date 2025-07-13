@@ -20,6 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 enum DashboardView { home, apartment, addDefect }
+
 enum DashboardTab { building, complaints, defects }
 
 class DashboardPage extends StatefulWidget {
@@ -77,8 +78,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 icon: Icons.error_outline,
                 actionText: 'Повторить',
                 onAction: () => context.read<ProjectBloc>().add(
-                  const ProjectEventRefresh(),
-                ),
+                      const ProjectEventRefresh(),
+                    ),
               );
             }
             return const SizedBox.shrink();
@@ -96,7 +97,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Stack(
       children: [
         // Main content
-        if (_currentView == DashboardView.home && 
+        if (_currentView == DashboardView.home &&
             _activeTab == DashboardTab.building)
           BuildingUnitsPage(
             projects: projects,
@@ -109,9 +110,9 @@ class _DashboardPageState extends State<DashboardPage> {
             onUnitTap: _onUnitTap,
             onRefresh: _onRefresh,
           )
-        else if (_currentView == DashboardView.apartment && 
-                 selectedProject != null && 
-                 selectedBuilding != null)
+        else if (_currentView == DashboardView.apartment &&
+            selectedProject != null &&
+            selectedBuilding != null)
           _buildApartmentView(selectedProject, selectedBuilding)
         else if (_currentView == DashboardView.addDefect)
           _buildAddDefectView()
@@ -146,7 +147,8 @@ class _DashboardPageState extends State<DashboardPage> {
             defectTypes: _defectTypes,
             defectStatuses: _defectStatuses,
             onBack: () => setState(() => _currentView = DashboardView.home),
-            onAddDefect: () => setState(() => _currentView = DashboardView.addDefect),
+            onAddDefect: () =>
+                setState(() => _currentView = DashboardView.addDefect),
             onStatusTap: _onStatusTap,
             onAttachFiles: _onAttachFiles,
             onMarkFixed: _onMarkFixed,
@@ -171,80 +173,25 @@ class _DashboardPageState extends State<DashboardPage> {
       bottom: 0,
       left: 0,
       right: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border(
-            top: BorderSide(color: Theme.of(context).colorScheme.outline),
+      child: NavigationBar(
+        selectedIndex: _activeTab.index,
+        onDestinationSelected: (index) {
+          setState(() => _activeTab = DashboardTab.values[index]);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.grid_3x3),
+            label: 'Шахматка',
           ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavButton(
-              icon: Icons.grid_3x3,
-              label: 'Шахматка',
-              isActive: _activeTab == DashboardTab.building,
-              onTap: () => setState(() => _activeTab = DashboardTab.building),
-            ),
-            _buildNavButton(
-              icon: Icons.message,
-              label: 'Претензии',
-              isActive: _activeTab == DashboardTab.complaints,
-              onTap: () => setState(() => _activeTab = DashboardTab.complaints),
-            ),
-            _buildNavButton(
-              icon: Icons.build,
-              label: 'Дефекты',
-              isActive: _activeTab == DashboardTab.defects,
-              onTap: () => setState(() => _activeTab = DashboardTab.defects),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavButton({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isActive ? theme.colorScheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isActive
-                  ? theme.colorScheme.onPrimaryContainer
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isActive
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.message),
+            label: 'Претензии',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.build),
+            label: 'Дефекты',
+          ),
+        ],
       ),
     );
   }
@@ -256,7 +203,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onBuildingChanged(String building) {
     context.read<ProjectBloc>().add(ProjectEventSelectBuilding(building));
-    
+
     final state = context.read<ProjectBloc>().state;
     if (state is ProjectStateLoaded && state.selectedProject != null) {
       _loadUnits(state.selectedProject!.id, building);
@@ -278,7 +225,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (building == null) return;
 
     setState(() => _isLoadingUnits = true);
-    
+
     try {
       final result = await DatabaseService.getUnitsWithDefectsForBuilding(
         projectId,
@@ -300,7 +247,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _loadStaticData() async {
     setState(() => _isLoadingData = true);
-    
+
     try {
       final results = await Future.wait([
         DatabaseService.getDefectTypes(),
@@ -308,7 +255,7 @@ class _DashboardPageState extends State<DashboardPage> {
         DatabaseService.getBrigades(),
         DatabaseService.getContractors(),
       ]);
-      
+
       setState(() {
         _defectTypes = results[0] as List<Legacy.DefectType>;
         _defectStatuses = results[1] as List<Legacy.DefectStatus>;
@@ -554,7 +501,9 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _refreshCurrentUnit() async {
     if (_selectedUnit != null) {
       final state = context.read<ProjectBloc>().state;
-      if (state is ProjectStateLoaded && state.selectedProject != null && state.selectedBuilding != null) {
+      if (state is ProjectStateLoaded &&
+          state.selectedProject != null &&
+          state.selectedBuilding != null) {
         await _loadUnits(state.selectedProject!.id, state.selectedBuilding);
         // Update selected unit with fresh data
         final updatedUnit = _units.firstWhere(
