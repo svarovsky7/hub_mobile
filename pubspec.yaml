@@ -49,9 +49,12 @@ dependencies:
   
   # URL launcher for opening files
   url_launcher: ^6.3.1
-  
+
   # State management
   flutter_bloc: ^8.1.6
+
+  # Custom fonts
+  google_fonts: ^6.2.1
   
   # Immutable models and code generation
   freezed_annotation: ^2.4.4
