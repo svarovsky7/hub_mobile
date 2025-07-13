@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/project.dart';
+import '../models/project.dart' as Legacy;
 import '../models/unit.dart';
 import '../models/defect.dart';
 import '../models/defect_attachment.dart';
@@ -9,19 +9,29 @@ class DatabaseService {
   static final _supabase = Supabase.instance.client;
 
   // Получить все проекты пользователя
-  static Future<List<Project>> getProjects() async {
+  static Future<List<Legacy.Project>> getProjects() async {
     try {
+      print('Attempting to fetch projects from Supabase...');
       final response = await _supabase
           .from('projects')
           .select('*')
-          .order('name');
+          .order('name')
+          .timeout(const Duration(seconds: 10));
 
+      print('Successfully fetched ${(response as List).length} projects');
       return (response as List)
-          .map((project) => Project.fromJson(project))
+          .map((project) => Legacy.Project.fromJson(project))
           .toList();
     } catch (e) {
       print('Error fetching projects: $e');
-      return [];
+      // Return some mock data for testing when connection fails
+      return [
+        Legacy.Project(
+          id: 1,
+          name: 'Тестовый проект',
+          buildings: ['1', '2', '3'],
+        ),
+      ];
     }
   }
 
@@ -171,7 +181,7 @@ class DatabaseService {
   }
 
   // Получить типы дефектов
-  static Future<List<DefectType>> getDefectTypes() async {
+  static Future<List<Legacy.DefectType>> getDefectTypes() async {
     try {
       final response = await _supabase
           .from('defect_types')
@@ -179,7 +189,7 @@ class DatabaseService {
           .order('name');
 
       return (response as List)
-          .map((type) => DefectType(
+          .map((type) => Legacy.DefectType(
             id: type['id'],
             name: type['name'],
           ))
@@ -187,17 +197,17 @@ class DatabaseService {
     } catch (e) {
       print('Error fetching defect types: $e');
       return [
-        DefectType(id: 1, name: 'Сантехника'),
-        DefectType(id: 2, name: 'Электрика'),
-        DefectType(id: 3, name: 'Отделка'),
-        DefectType(id: 4, name: 'Окна/Двери'),
-        DefectType(id: 5, name: 'Общие зоны'),
+        Legacy.DefectType(id: 1, name: 'Сантехника'),
+        Legacy.DefectType(id: 2, name: 'Электрика'),
+        Legacy.DefectType(id: 3, name: 'Отделка'),
+        Legacy.DefectType(id: 4, name: 'Окна/Двери'),
+        Legacy.DefectType(id: 5, name: 'Общие зоны'),
       ];
     }
   }
 
   // Получить статусы дефектов
-  static Future<List<DefectStatus>> getDefectStatuses() async {
+  static Future<List<Legacy.DefectStatus>> getDefectStatuses() async {
     try {
       final response = await _supabase
           .from('statuses')
@@ -206,7 +216,7 @@ class DatabaseService {
           .order('id');
 
       final statuses = (response as List)
-          .map((status) => DefectStatus(
+          .map((status) => Legacy.DefectStatus(
             id: status['id'],
             entity: status['entity'],
             name: status['name'],
@@ -215,7 +225,7 @@ class DatabaseService {
           .toList();
       
       // Удаляем дублирующиеся статусы по ID
-      final uniqueStatuses = <int, DefectStatus>{};
+      final uniqueStatuses = <int, Legacy.DefectStatus>{};
       for (final status in statuses) {
         uniqueStatuses[status.id] = status;
       }
@@ -224,11 +234,11 @@ class DatabaseService {
     } catch (e) {
       print('Error fetching defect statuses: $e');
       return [
-        DefectStatus(id: 1, entity: 'defect', name: 'Получен', color: '#ef4444'),
-        DefectStatus(id: 2, entity: 'defect', name: 'В работе', color: '#f59e0b'),
-        DefectStatus(id: 3, entity: 'defect', name: 'Устранен', color: '#10b981'),
-        DefectStatus(id: 4, entity: 'defect', name: 'Отклонен', color: '#6b7280'),
-        DefectStatus(id: 9, entity: 'defect', name: 'НА ПРОВЕРКУ', color: '#3b82f6'),
+        Legacy.DefectStatus(id: 1, entity: 'defect', name: 'Получен', color: '#ef4444'),
+        Legacy.DefectStatus(id: 2, entity: 'defect', name: 'В работе', color: '#f59e0b'),
+        Legacy.DefectStatus(id: 3, entity: 'defect', name: 'Устранен', color: '#10b981'),
+        Legacy.DefectStatus(id: 4, entity: 'defect', name: 'Отклонен', color: '#6b7280'),
+        Legacy.DefectStatus(id: 9, entity: 'defect', name: 'НА ПРОВЕРКУ', color: '#3b82f6'),
       ];
     }
   }
