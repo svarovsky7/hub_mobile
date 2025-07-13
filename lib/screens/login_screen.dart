@@ -36,9 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.user != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Вход выполнен успешно!')),
-        );
+        Navigator.of(context).pushReplacementNamed('/home');
       }
     } on AuthException catch (e) {
       if (mounted) {
