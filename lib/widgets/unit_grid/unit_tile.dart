@@ -34,7 +34,7 @@ class UnitTile extends StatelessWidget {
           color: unitColor,
           border: Border.all(
             color: unit.locked ? theme.colorScheme.error : borderColor,
-            width: 2,
+            width: status == UnitStatus.noDefects ? 1 : 3,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -116,28 +116,8 @@ class UnitTile extends StatelessWidget {
       return theme.colorScheme.surfaceVariant;
     }
     
-    // Получаем цвет из statusColors если доступен
-    final statusId = _getStatusId(status);
-    if (statusId != null && statusColors.containsKey(statusId)) {
-      final colorHex = statusColors[statusId]!;
-      return Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
-    }
-    
-    // Fallback цвета если нет в базе
-    switch (status) {
-      case UnitStatus.hasNew:
-        return const Color(0xFFEF4444);
-      case UnitStatus.inProgress:
-        return const Color(0xFFF59E0B);
-      case UnitStatus.completed:
-        return const Color(0xFF10B981);
-      case UnitStatus.rejected:
-        return const Color(0xFF6B7280);
-      case UnitStatus.onReview:
-        return const Color(0xFF3B82F6);
-      default:
-        return theme.colorScheme.surface;
-    }
+    // Для ячеек с дефектами используем светлый фон для читаемости номера
+    return theme.colorScheme.surface;
   }
   
   int? _getStatusId(UnitStatus status) {
@@ -162,14 +142,28 @@ class UnitTile extends StatelessWidget {
       return theme.colorScheme.outline;
     }
     
-    // Используем более темную версию основного цвета
-    final baseColor = _getUnitColor(status, theme);
-    return Color.fromARGB(
-      baseColor.alpha,
-      (baseColor.red * 0.8).round(),
-      (baseColor.green * 0.8).round(),
-      (baseColor.blue * 0.8).round(),
-    );
+    // Получаем цвет статуса дефекта для границы
+    final statusId = _getStatusId(status);
+    if (statusId != null && statusColors.containsKey(statusId)) {
+      final colorHex = statusColors[statusId]!;
+      return Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
+    }
+    
+    // Fallback цвета для границы если нет в базе
+    switch (status) {
+      case UnitStatus.hasNew:
+        return const Color(0xFFEF4444);
+      case UnitStatus.inProgress:
+        return const Color(0xFFF59E0B);
+      case UnitStatus.completed:
+        return const Color(0xFF10B981);
+      case UnitStatus.rejected:
+        return const Color(0xFF6B7280);
+      case UnitStatus.onReview:
+        return const Color(0xFF3B82F6);
+      default:
+        return theme.colorScheme.outline;
+    }
   }
 
   Color _getUnitTextColor(UnitStatus status, ThemeData theme) {
@@ -177,7 +171,7 @@ class UnitTile extends StatelessWidget {
       return theme.colorScheme.onSurfaceVariant;
     }
     
-    // Белый текст на цветном фоне для лучшей читаемости
-    return Colors.white;
+    // Темный текст на светлом фоне для лучшей читаемости
+    return theme.colorScheme.onSurface;
   }
 }

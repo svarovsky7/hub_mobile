@@ -227,7 +227,7 @@ class DatabaseService {
       final response = await _supabase
           .from('statuses')
           .select('*')
-          .eq('entity', 'defect')
+          .eq('entity', 'defects')
           .order('id');
 
       final statuses = (response as List)

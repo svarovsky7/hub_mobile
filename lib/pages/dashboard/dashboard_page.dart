@@ -164,6 +164,7 @@ class _DashboardPageState extends State<DashboardPage> {
             statusColors: _statusColors,
             defectTypes: _defectTypes,
             onDefectTypeChanged: _onDefectTypeChanged,
+            onResetFilters: _onResetFilters,
             selectedDefectType: _selectedDefectType,
           )
         else if (_currentView == DashboardView.apartment &&
@@ -291,6 +292,13 @@ class _DashboardPageState extends State<DashboardPage> {
   void _onDefectTypeChanged(int? defectTypeId) {
     setState(() {
       _selectedDefectType = defectTypeId;
+    });
+  }
+
+  void _onResetFilters() {
+    setState(() {
+      _selectedDefectType = null;
+      _showOnlyDefects = false;
     });
   }
 

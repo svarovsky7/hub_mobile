@@ -20,6 +20,7 @@ class BuildingUnitsPage extends StatelessWidget {
     required this.onToggleShowOnlyDefects,
     required this.defectTypes,
     required this.onDefectTypeChanged,
+    required this.onResetFilters,
     this.showOnlyDefects = false,
     this.statusColors = const {},
     this.selectedDefectType,
@@ -39,6 +40,7 @@ class BuildingUnitsPage extends StatelessWidget {
   final Map<int, String> statusColors;
   final List<dynamic> defectTypes;
   final Function(int?) onDefectTypeChanged;
+  final VoidCallback onResetFilters;
   final int? selectedDefectType;
 
   @override
@@ -123,17 +125,38 @@ class BuildingUnitsPage extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: onToggleShowOnlyDefects,
-                icon: Icon(
-                  showOnlyDefects ? Icons.filter_alt : Icons.filter_alt_outlined,
-                  color: Colors.white,
-                ),
-                style: IconButton.styleFrom(
-                  backgroundColor: showOnlyDefects 
-                      ? Colors.orange.withOpacity(0.8)
-                      : Colors.white.withOpacity(0.2),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Reset filters button
+                  if (showOnlyDefects || selectedDefectType != null)
+                    IconButton(
+                      onPressed: onResetFilters,
+                      icon: const Icon(
+                        Icons.clear_all,
+                        color: Colors.white,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.red.withOpacity(0.8),
+                      ),
+                      tooltip: 'Сбросить фильтры',
+                    ),
+                  const SizedBox(width: 4),
+                  // Show only defects filter button
+                  IconButton(
+                    onPressed: onToggleShowOnlyDefects,
+                    icon: Icon(
+                      showOnlyDefects ? Icons.filter_alt : Icons.filter_alt_outlined,
+                      color: Colors.white,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: showOnlyDefects 
+                          ? Colors.orange.withOpacity(0.8)
+                          : Colors.white.withOpacity(0.2),
+                    ),
+                    tooltip: 'Показать только с дефектами',
+                  ),
+                ],
               ),
             ],
           ),
@@ -267,11 +290,12 @@ class BuildingUnitsPage extends StatelessWidget {
     }
     
     try {
-      final defectType = defectTypes.firstWhere(
-        (type) => type.id == selectedDefectType,
-        orElse: () => null,
-      );
-      return defectType?.name ?? 'Все типы дефектов';
+      for (final type in defectTypes) {
+        if (type.id == selectedDefectType) {
+          return type.name;
+        }
+      }
+      return 'Все типы дефектов';
     } catch (e) {
       return 'Все типы дефектов';
     }
