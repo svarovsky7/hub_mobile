@@ -44,14 +44,10 @@ class UnitTile extends StatelessWidget {
             Center(
               child: Text(
                 unit.name,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: textColor,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textColor),
               ),
             ),
-            
+
             // Lock icon for locked units
             if (unit.locked)
               Positioned(
@@ -73,14 +69,10 @@ class UnitTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.lock,
-                    color: Colors.white,
-                    size: 14,
-                  ),
+                  child: const Icon(Icons.lock, color: Colors.white, size: 14),
                 ),
               ),
-            
+
             // Defect count badge
             if (unit.defects.isNotEmpty)
               Positioned(
@@ -89,18 +81,11 @@ class UnitTile extends StatelessWidget {
                 child: Container(
                   width: 18,
                   height: 18,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.error,
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: theme.colorScheme.error, shape: BoxShape.circle),
                   child: Center(
                     child: Text(
                       '${unit.defects.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -115,11 +100,16 @@ class UnitTile extends StatelessWidget {
     if (status == UnitStatus.noDefects) {
       return theme.colorScheme.surfaceVariant;
     }
-    
-    // Для ячеек с дефектами используем светлый фон для читаемости номера
-    return theme.colorScheme.surface;
+
+    final statusId = _getStatusId(status);
+    if (statusId != null && statusColors.containsKey(statusId)) {
+      final colorHex = statusColors[statusId]!;
+      return Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
+    }
+
+    return _getFallbackColor(status);
   }
-  
+
   int? _getStatusId(UnitStatus status) {
     switch (status) {
       case UnitStatus.hasNew:
@@ -141,14 +131,14 @@ class UnitTile extends StatelessWidget {
     if (status == UnitStatus.noDefects) {
       return theme.colorScheme.outline;
     }
-    
+
     // Получаем цвет статуса дефекта для границы
     final statusId = _getStatusId(status);
     if (statusId != null && statusColors.containsKey(statusId)) {
       final colorHex = statusColors[statusId]!;
       return Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
     }
-    
+
     // Fallback цвета для границы если нет в базе
     switch (status) {
       case UnitStatus.hasNew:
@@ -170,8 +160,25 @@ class UnitTile extends StatelessWidget {
     if (status == UnitStatus.noDefects) {
       return theme.colorScheme.onSurfaceVariant;
     }
-    
-    // Темный текст на светлом фоне для лучшей читаемости
-    return theme.colorScheme.onSurface;
+
+    final background = _getUnitColor(status, theme);
+    return ThemeData.estimateBrightnessForColor(background) == Brightness.dark ? Colors.white : Colors.black;
+  }
+
+  Color _getFallbackColor(UnitStatus status) {
+    switch (status) {
+      case UnitStatus.hasNew:
+        return const Color(0xFFEF4444);
+      case UnitStatus.inProgress:
+        return const Color(0xFFF59E0B);
+      case UnitStatus.completed:
+        return const Color(0xFF10B981);
+      case UnitStatus.rejected:
+        return const Color(0xFF6B7280);
+      case UnitStatus.onReview:
+        return const Color(0xFF3B82F6);
+      default:
+        return const Color(0xFF6B7280);
+    }
   }
 }
