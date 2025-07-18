@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../app/app.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,15 +31,23 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      print('Attempting to sign in with email: ${_emailController.text.trim()}');
+      
       final response = await Supabase.instance.client.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
+      print('Sign in response: ${response.user?.id}');
+      
       if (response.user != null && mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
+        print('User authenticated successfully, navigating to App');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const App()),
+        );
       }
     } on AuthException catch (e) {
+      print('AuthException during sign in: ${e.message}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -48,10 +57,11 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
+      print('Unexpected error during sign in: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Произошла ошибка при входе'),
+          SnackBar(
+            content: Text('Произошла ошибка при входе: $e'),
             backgroundColor: Colors.red,
           ),
         );

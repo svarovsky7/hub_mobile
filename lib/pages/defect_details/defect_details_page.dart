@@ -7,6 +7,7 @@ import '../../shared/ui/components/feedback/empty_state.dart';
 import '../../shared/ui/components/buttons/app_button.dart';
 import '../../widgets/defect_card/defect_card.dart';
 
+
 class DefectDetailsPage extends StatelessWidget {
   const DefectDetailsPage({
     super.key,

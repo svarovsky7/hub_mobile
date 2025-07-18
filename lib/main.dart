@@ -3,16 +3,26 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'screens/login_screen.dart';
+import 'screens/debug_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await dotenv.load(fileName: ".env");
   
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  
+  print('Initializing Supabase...');
+  print('URL: $supabaseUrl');
+  print('Has Anon Key: ${supabaseAnonKey.isNotEmpty}');
+  
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL'] ?? '',
-    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
+  
+  print('Supabase initialized successfully');
   
   runApp(const MyApp());
 }
@@ -40,7 +50,9 @@ class AuthWrapper extends StatelessWidget {
     if (session != null) {
       return const App();
     } else {
-      return const LoginScreen();
+      // Временно показываем экран отладки
+      return const DebugScreen();
+      // return const LoginScreen();
     }
   }
 }

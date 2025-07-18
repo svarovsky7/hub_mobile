@@ -104,10 +104,11 @@ class UnitTile extends StatelessWidget {
     final statusId = _getStatusId(status);
     if (statusId != null && statusColors.containsKey(statusId)) {
       final colorHex = statusColors[statusId]!;
-      return Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
+      final baseColor = Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
+      return baseColor.withOpacity(0.2); // Делаем цвет более прозрачным для читаемости
     }
 
-    return _getFallbackColor(status);
+    return _getFallbackColor(status).withOpacity(0.2);
   }
 
   int? _getStatusId(UnitStatus status) {
@@ -161,8 +162,8 @@ class UnitTile extends StatelessWidget {
       return theme.colorScheme.onSurfaceVariant;
     }
 
-    final background = _getUnitColor(status, theme);
-    return ThemeData.estimateBrightnessForColor(background) == Brightness.dark ? Colors.white : Colors.black;
+    // Поскольку фон теперь прозрачный, используем темный текст для лучшей читаемости
+    return theme.colorScheme.onSurface;
   }
 
   Color _getFallbackColor(UnitStatus status) {
