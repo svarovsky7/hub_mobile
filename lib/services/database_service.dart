@@ -615,13 +615,13 @@ class DatabaseService {
       final activeDefectsResponse = await _supabase
           .from('defects')
           .select('id')
-          .in_('status_id', [1, 2, 9]) // Активные статусы
+          .inFilter('status_id', [1, 2, 9]) // Активные статусы
           .count();
 
       final closedDefectsResponse = await _supabase
           .from('defects')
           .select('id')
-          .in_('status_id', [3, 10]) // Закрытые статусы
+          .inFilter('status_id', [3, 10]) // Закрытые статусы
           .count();
 
       return {
