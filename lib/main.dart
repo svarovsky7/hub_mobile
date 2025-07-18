@@ -50,9 +50,7 @@ class AuthWrapper extends StatelessWidget {
     if (session != null) {
       return const App();
     } else {
-      // Временно показываем экран отладки
-      return const DebugScreen();
-      // return const LoginScreen();
+      return const LoginScreen();
     }
   }
 }
