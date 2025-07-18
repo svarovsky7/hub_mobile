@@ -47,6 +47,12 @@ dependencies:
   # Image picker for camera/gallery
   image_picker: ^1.1.2
   
+  # State management
+  provider: ^6.1.2
+  
+  # Persistent storage
+  shared_preferences: ^2.3.3
+  
   # URL launcher for opening files
   url_launcher: ^6.3.1
 

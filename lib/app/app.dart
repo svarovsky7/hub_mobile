@@ -18,14 +18,7 @@ class App extends StatelessWidget {
           create: (context) => ProjectBloc(
             context.read<ProjectRepository>(),
           ),
-          child: MaterialApp(
-            title: 'Hub Mobile',
-            theme: AppTheme.light(),
-            darkTheme: AppTheme.dark(),
-            themeMode: ThemeMode.system,
-            home: const DashboardPage(),
-            debugShowCheckedModeBanner: false,
-          ),
+          child: const DashboardPage(),
         ),
       ),
     );

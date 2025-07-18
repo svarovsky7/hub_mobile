@@ -14,6 +14,7 @@ import '../../models/defect.dart';
 import '../../services/database_service.dart';
 import '../../widgets/dialogs/status_change_dialog.dart';
 import '../../widgets/dialogs/mark_fixed_dialog.dart';
+import '../../widgets/app_drawer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -58,6 +59,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: BlocListener<ProjectBloc, ProjectState>(
           listenWhen: (previous, current) {
@@ -166,6 +168,7 @@ class _DashboardPageState extends State<DashboardPage> {
             onDefectTypeChanged: _onDefectTypeChanged,
             onResetFilters: _onResetFilters,
             selectedDefectType: _selectedDefectType,
+            defectStatuses: _defectStatuses,
           )
         else if (_currentView == DashboardView.apartment &&
             selectedProject != null &&

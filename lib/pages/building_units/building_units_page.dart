@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../entities/project/model/project.dart';
 import '../../models/unit.dart';
+import '../../models/project.dart' as Legacy;
 import '../../shared/ui/components/feedback/loading_overlay.dart';
 import '../../shared/ui/components/feedback/empty_state.dart';
 import '../../widgets/unit_grid/unit_tile.dart';
+import '../../providers/theme_provider.dart';
+import '../../services/database_service.dart';
+import '../../main.dart';
 
 class BuildingUnitsPage extends StatefulWidget {
   const BuildingUnitsPage({
@@ -24,6 +29,7 @@ class BuildingUnitsPage extends StatefulWidget {
     this.showOnlyDefects = false,
     this.statusColors = const {},
     this.selectedDefectType,
+    this.defectStatuses = const [],
   });
 
   final List<Project> projects;
@@ -42,6 +48,7 @@ class BuildingUnitsPage extends StatefulWidget {
   final Function(int?) onDefectTypeChanged;
   final VoidCallback onResetFilters;
   final int? selectedDefectType;
+  final List<Legacy.DefectStatus> defectStatuses;
 
   @override
   State<BuildingUnitsPage> createState() => _BuildingUnitsPageState();
@@ -118,6 +125,15 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
           // Project title and filter buttons
           Row(
             children: [
+              // Menu button
+              IconButton(
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                icon: const Icon(Icons.menu, color: Colors.white),
+                padding: const EdgeInsets.all(8),
+              ),
+              
+              const SizedBox(width: 8),
+              
               Expanded(
                 child: GestureDetector(
                   onTap: () => _showProjectSelector(context, theme),
@@ -147,6 +163,13 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              Text(
+                                'Корпус: ',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 14,
+                                ),
+                              ),
                               Text(
                                 widget.selectedBuilding!,
                                 style: TextStyle(
@@ -234,6 +257,28 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  // Theme toggle button
+                  Consumer<ThemeProvider>(
+                    builder: (context, themeProvider, child) {
+                      return Material(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        child: InkWell(
+                          onTap: () => themeProvider.toggleTheme(),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            child: Icon(
+                              themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ],
@@ -267,13 +312,25 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
   }
 
   Widget _buildCollapsibleDefectTypes(ThemeData theme) {
+    // Подсчитываем количество дефектов по типам
+    final allDefects = widget.units.expand((unit) => unit.defects).toList();
+    final availableTypes = widget.defectTypes.where((type) {
+      final count = allDefects.where((d) => d.typeId == type.id).length;
+      return count > 0;
+    }).toList();
+    
+    // Если нет типов дефектов для отображения, не показываем меню
+    if (availableTypes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -313,28 +370,25 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: widget.defectTypes.map<Widget>((type) {
-                  final allDefects = widget.units.expand((unit) => unit.defects).toList();
+                children: availableTypes.map<Widget>((type) {
                   final count = allDefects.where((d) => d.typeId == type.id).length;
                   final isSelected = widget.selectedDefectType == type.id;
                   
                   return InkWell(
-                    onTap: count > 0 ? () {
+                    onTap: () {
                       if (widget.selectedDefectType == type.id) {
                         widget.onDefectTypeChanged(null);
                       } else {
                         widget.onDefectTypeChanged(type.id);
                       }
-                    } : null,
+                    },
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? theme.colorScheme.primary
-                            : count > 0
-                                ? theme.colorScheme.primary.withOpacity(0.1)
-                                : theme.colorScheme.surfaceVariant,
+                            : theme.colorScheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected
@@ -349,9 +403,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                           fontWeight: FontWeight.w500,
                           color: isSelected
                               ? Colors.white
-                              : count > 0
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
+                              : theme.colorScheme.primary,
                         ),
                       ),
                     ),
@@ -366,13 +418,35 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
   }
 
   Widget _buildCollapsibleUnitStatuses(ThemeData theme) {
+    // Получаем все статусы дефектов, которые присутствуют в текущих объектах
+    final allDefects = widget.units.expand((unit) => unit.defects).toList();
+    final existingStatuses = <int, String>{};
+    
+    // Добавляем статус "Без дефектов" если есть квартиры без дефектов
+    final hasUnitsWithoutDefects = widget.units.any((unit) => unit.defects.isEmpty);
+    if (hasUnitsWithoutDefects) {
+      existingStatuses[0] = 'Без дефектов';
+    }
+    
+    // Собираем уникальные статусы дефектов
+    for (final defect in allDefects) {
+      if (defect.statusId != null && widget.statusColors.containsKey(defect.statusId)) {
+        existingStatuses[defect.statusId!] = _getStatusNameById(defect.statusId!);
+      }
+    }
+    
+    // Если нет статусов для отображения, не показываем меню
+    if (existingStatuses.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -409,58 +483,64 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
             const Divider(height: 1, indent: 16, endIndent: 16),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatusLegendItem(
-                          theme.colorScheme.surfaceVariant,
-                          theme.colorScheme.outline,
-                          'Без дефектов',
-                          theme,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildStatusLegendItem(
-                          const Color(0xFFEF4444),
-                          const Color(0xFFEF4444),
-                          'Новые дефекты',
-                          theme,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatusLegendItem(
-                          const Color(0xFFF59E0B),
-                          const Color(0xFFF59E0B),
-                          'В работе',
-                          theme,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildStatusLegendItem(
-                          const Color(0xFF10B981),
-                          const Color(0xFF10B981),
-                          'Устранено',
-                          theme,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: existingStatuses.entries.map<Widget>((entry) {
+                  final statusId = entry.key;
+                  final statusName = entry.value;
+                  
+                  Color bgColor, borderColor;
+                  
+                  if (statusId == 0) {
+                    // Статус "Без дефектов" - прозрачный фон
+                    bgColor = Colors.transparent;
+                    borderColor = theme.colorScheme.outline.withOpacity(0.6);
+                  } else {
+                    // Статусы дефектов - цветная заливка
+                    final colorHex = widget.statusColors[statusId];
+                    if (colorHex != null) {
+                      final color = Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
+                      bgColor = color;
+                      borderColor = color;
+                    } else {
+                      bgColor = theme.colorScheme.surfaceVariant;
+                      borderColor = theme.colorScheme.outline;
+                    }
+                  }
+                  
+                  return _buildStatusLegendItem(bgColor, borderColor, statusName, theme);
+                }).toList(),
               ),
             ),
           ],
         ],
       ),
     );
+  }
+
+  String _getStatusNameById(int statusId) {
+    // Сначала ищем в переданном списке статусов
+    try {
+      final status = widget.defectStatuses.firstWhere((s) => s.id == statusId);
+      return status.name;
+    } catch (e) {
+      // Если не найден, используем fallback названия
+      switch (statusId) {
+        case 1:
+          return 'Новые дефекты';
+        case 2:
+          return 'В работе';
+        case 3:
+          return 'Устранено';
+        case 4:
+          return 'Отклонено';
+        case 9:
+          return 'На проверке';
+        default:
+          return 'Статус $statusId';
+      }
+    }
   }
 
   Widget _buildStatusLegendItem(Color bgColor, Color borderColor, String label, ThemeData theme) {
@@ -470,7 +550,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
           width: 16,
           height: 16,
           decoration: BoxDecoration(
-            color: bgColor.withOpacity(0.2),
+            color: bgColor == Colors.transparent ? Colors.transparent : bgColor.withOpacity(0.3),
             border: Border.all(color: borderColor, width: 2),
             borderRadius: BorderRadius.circular(4),
           ),
@@ -552,11 +632,11 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -778,5 +858,6 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
       ),
     );
   }
+
 
 }

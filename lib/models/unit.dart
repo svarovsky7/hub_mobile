@@ -71,11 +71,10 @@ class Unit {
     );
   }
 
-  // Статус юнита по дефектам (на основе наименьшего ID статуса)
+  // Статус юнита по дефектам (на основе приоритета статусов)
   UnitStatus getStatus() {
     if (defects.isEmpty) return UnitStatus.noDefects;
     
-    // Находим наименьший (самый критичный) статус среди всех дефектов
     final statusIds = defects
         .where((d) => d.statusId != null)
         .map((d) => d.statusId!)
@@ -83,10 +82,23 @@ class Unit {
     
     if (statusIds.isEmpty) return UnitStatus.noDefects;
     
-    final minStatusId = statusIds.reduce((a, b) => a < b ? a : b);
+    // Определяем приоритет статусов (чем меньше число, тем выше приоритет)
+    final priorityOrder = [1, 2, 9, 4, 7, 8, 10, 3]; // Новый -> В работе -> На проверке -> Отклонен -> Прочие -> Устранен
+    
+    // Находим статус с наивысшим приоритетом
+    int? highestPriorityStatus;
+    for (final priority in priorityOrder) {
+      if (statusIds.contains(priority)) {
+        highestPriorityStatus = priority;
+        break;
+      }
+    }
+    
+    // Если не найден в приоритетах, берем первый доступный
+    final finalStatusId = highestPriorityStatus ?? statusIds.first;
     
     // Маппим статус дефекта на статус юнита
-    switch (minStatusId) {
+    switch (finalStatusId) {
       case 1: // Получен
         return UnitStatus.hasNew;
       case 2: // В работе
@@ -95,8 +107,14 @@ class Unit {
         return UnitStatus.completed;
       case 4: // Отклонен
         return UnitStatus.rejected;
+      case 7: // Фиолетовый статус
+        return UnitStatus.hasDefects;
+      case 8: // Оранжевый статус
+        return UnitStatus.inProgress;
       case 9: // На проверку
         return UnitStatus.onReview;
+      case 10: // Зеленый статус
+        return UnitStatus.completed;
       default:
         return UnitStatus.hasDefects;
     }

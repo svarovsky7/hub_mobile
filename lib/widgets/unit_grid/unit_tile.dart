@@ -6,8 +6,8 @@ class UnitTile extends StatelessWidget {
     super.key,
     required this.unit,
     required this.onTap,
-    this.width = 60,
-    this.height = 48,
+    this.width = 68,
+    this.height = 52,
     this.statusColors = const {},
   });
 
@@ -34,7 +34,7 @@ class UnitTile extends StatelessWidget {
           color: unitColor,
           border: Border.all(
             color: unit.locked ? theme.colorScheme.error : borderColor,
-            width: status == UnitStatus.noDefects ? 1 : 3,
+            width: status == UnitStatus.noDefects ? 1.5 : 3.5,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -98,39 +98,43 @@ class UnitTile extends StatelessWidget {
 
   Color _getUnitColor(UnitStatus status, ThemeData theme) {
     if (status == UnitStatus.noDefects) {
-      return theme.colorScheme.surfaceVariant;
+      return Colors.transparent; // Прозрачный фон для квартир без дефектов
     }
 
+    // Для квартир с дефектами - цветная заливка в цвет статуса
     final statusId = _getStatusId(status);
+    
     if (statusId != null && statusColors.containsKey(statusId)) {
       final colorHex = statusColors[statusId]!;
       final baseColor = Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
-      return baseColor.withOpacity(0.2); // Делаем цвет более прозрачным для читаемости
+      return baseColor.withOpacity(0.3); // Полупрозрачная заливка
     }
 
-    return _getFallbackColor(status).withOpacity(0.2);
+    // Fallback цвета для квартир с дефектами
+    return _getFallbackColor(status).withOpacity(0.3);
   }
 
   int? _getStatusId(UnitStatus status) {
-    switch (status) {
-      case UnitStatus.hasNew:
-        return 1;
-      case UnitStatus.inProgress:
-        return 2;
-      case UnitStatus.completed:
-        return 3;
-      case UnitStatus.rejected:
-        return 4;
-      case UnitStatus.onReview:
-        return 9;
-      default:
-        return null;
+    // Для всех статусов используем прямой поиск статуса из дефектов
+    if (unit.defects.isNotEmpty) {
+      // Берем приоритетный статус из дефектов
+      final statusIds = unit.defects.where((d) => d.statusId != null).map((d) => d.statusId!).toList();
+      if (statusIds.isNotEmpty) {
+        final priorityOrder = [1, 2, 9, 4, 7, 8, 10, 3]; // Приоритет как в Unit.getStatus()
+        for (final priority in priorityOrder) {
+          if (statusIds.contains(priority)) {
+            return priority;
+          }
+        }
+        return statusIds.first;
+      }
     }
+    return null;
   }
 
   Color _getUnitBorderColor(UnitStatus status, ThemeData theme) {
     if (status == UnitStatus.noDefects) {
-      return theme.colorScheme.outline;
+      return theme.colorScheme.outline.withOpacity(0.6);
     }
 
     // Получаем цвет статуса дефекта для границы
@@ -140,29 +144,15 @@ class UnitTile extends StatelessWidget {
       return Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
     }
 
-    // Fallback цвета для границы если нет в базе
-    switch (status) {
-      case UnitStatus.hasNew:
-        return const Color(0xFFEF4444);
-      case UnitStatus.inProgress:
-        return const Color(0xFFF59E0B);
-      case UnitStatus.completed:
-        return const Color(0xFF10B981);
-      case UnitStatus.rejected:
-        return const Color(0xFF6B7280);
-      case UnitStatus.onReview:
-        return const Color(0xFF3B82F6);
-      default:
-        return theme.colorScheme.outline;
-    }
+    return _getFallbackColor(status);
   }
 
   Color _getUnitTextColor(UnitStatus status, ThemeData theme) {
     if (status == UnitStatus.noDefects) {
-      return theme.colorScheme.onSurfaceVariant;
+      return theme.colorScheme.onSurface; // Контрастный текст для квартир без дефектов
     }
 
-    // Поскольку фон теперь прозрачный, используем темный текст для лучшей читаемости
+    // Для квартир с дефектами используем темный текст для читаемости на цветном фоне
     return theme.colorScheme.onSurface;
   }
 

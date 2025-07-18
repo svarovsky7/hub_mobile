@@ -565,4 +565,79 @@ class DatabaseService {
       return null;
     }
   }
+
+  // Выйти из аккаунта
+  static Future<void> logout() async {
+    try {
+      await _supabase.auth.signOut();
+    } catch (e) {
+      print('Error during logout: $e');
+      throw Exception('Ошибка при выходе из аккаунта');
+    }
+  }
+
+  // Получить информацию о пользователе
+  static Future<Map<String, dynamic>> getUserInfo() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        return {
+          'name': user.userMetadata?['name'] ?? user.email?.split('@')[0] ?? 'Пользователь',
+          'email': user.email ?? '',
+          'id': user.id,
+        };
+      }
+      return {};
+    } catch (e) {
+      print('Error getting user info: $e');
+      return {};
+    }
+  }
+
+  // Получить статистику пользователя
+  static Future<Map<String, dynamic>> getUserStatistics() async {
+    try {
+      final userId = await getCurrentUserId();
+      if (userId == null) return {};
+
+      // Получаем общее количество проектов
+      final projectsResponse = await _supabase
+          .from('projects')
+          .select('id')
+          .count();
+
+      // Получаем статистику по дефектам
+      final defectsResponse = await _supabase
+          .from('defects')
+          .select('id, status_id')
+          .count();
+
+      final activeDefectsResponse = await _supabase
+          .from('defects')
+          .select('id')
+          .in_('status_id', [1, 2, 9]) // Активные статусы
+          .count();
+
+      final closedDefectsResponse = await _supabase
+          .from('defects')
+          .select('id')
+          .in_('status_id', [3, 10]) // Закрытые статусы
+          .count();
+
+      return {
+        'totalProjects': projectsResponse.count,
+        'totalDefects': defectsResponse.count,
+        'activeDefects': activeDefectsResponse.count,
+        'closedDefects': closedDefectsResponse.count,
+      };
+    } catch (e) {
+      print('Error getting user statistics: $e');
+      return {
+        'totalProjects': 0,
+        'totalDefects': 0,
+        'activeDefects': 0,
+        'closedDefects': 0,
+      };
+    }
+  }
 }
