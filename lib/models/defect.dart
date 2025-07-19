@@ -1,3 +1,5 @@
+import 'defect_attachment.dart';
+
 class Defect {
   final int id;
   final String description;
@@ -16,6 +18,7 @@ class Defect {
   final int? brigadeId;
   final int? contractorId;
   final String? fixedBy;
+  final List<DefectAttachment> attachments;
 
   Defect({
     required this.id,
@@ -35,6 +38,7 @@ class Defect {
     this.brigadeId,
     this.contractorId,
     this.fixedBy,
+    this.attachments = const [],
   });
 
   factory Defect.fromJson(Map<String, dynamic> json) {
@@ -56,6 +60,11 @@ class Defect {
       brigadeId: json['brigade_id'],
       contractorId: json['contractor_id'],
       fixedBy: json['fixed_by'],
+      attachments: json['attachments'] != null
+          ? (json['attachments'] as List)
+              .map((attachment) => DefectAttachment.fromJson(attachment))
+              .toList()
+          : [],
     );
   }
 
@@ -78,6 +87,7 @@ class Defect {
       'brigade_id': brigadeId,
       'contractor_id': contractorId,
       'fixed_by': fixedBy,
+      'attachments': attachments.map((attachment) => attachment.toJson()).toList(),
     };
   }
 
@@ -99,6 +109,7 @@ class Defect {
     int? brigadeId,
     int? contractorId,
     String? fixedBy,
+    List<DefectAttachment>? attachments,
   }) {
     return Defect(
       id: id ?? this.id,
@@ -118,6 +129,7 @@ class Defect {
       brigadeId: brigadeId ?? this.brigadeId,
       contractorId: contractorId ?? this.contractorId,
       fixedBy: fixedBy ?? this.fixedBy,
+      attachments: attachments ?? this.attachments,
     );
   }
 }

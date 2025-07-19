@@ -1,9 +1,11 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/project.dart' as legacy;
 import '../models/unit.dart';
 import '../models/defect.dart';
 import '../models/defect_attachment.dart';
+import 'offline_service.dart';
 
 class DatabaseService {
   static final _supabase = Supabase.instance.client;
@@ -11,16 +13,8 @@ class DatabaseService {
   // Получить все проекты пользователя
   static Future<List<legacy.Project>> getProjects() async {
     try {
-      // Log: Attempting to fetch projects from Supabase...
-      final response = await _supabase.from('projects').select('*').order('name').timeout(const Duration(seconds: 10));
-
-      // Log: Successfully fetched ${(response as List).length} projects
-      final projects = (response as List).map((project) => legacy.Project.fromJson(project)).toList();
-
-      // Сортируем проекты по имени
-      projects.sort((a, b) => a.name.compareTo(b.name));
-
-      return projects;
+      // Используем getUserProjects для фильтрации проектов по текущему пользователю
+      return await getUserProjects();
     } catch (e) {
       // Log: Error fetching projects: $e
       // Return some mock data for testing when connection fails
@@ -34,13 +28,192 @@ class DatabaseService {
   static Future<List<legacy.Project>> getUserProjects() async {
     try {
       final userId = await getCurrentUserId();
-      if (userId == null) return [];
+      print('Getting projects for user: $userId');
+      
+      if (userId == null) {
+        print('No user ID found');
+        return [];
+      }
 
-      // TODO: Реализовать фильтрацию по пользователю через связанную таблицу
-      // Пока возвращаем все проекты
-      return await getProjects();
+      // Проверяем офлайн-режим
+      if (!OfflineService.isOnline) {
+        print('Offline mode: loading cached projects');
+        return await OfflineService.getCachedProjects(userId);
+      }
+
+      // Сначала проверим, есть ли записи в profiles_projects для этого пользователя
+      final profileProjectsResponse = await _supabase
+          .from('profiles_projects')
+          .select('project_id')
+          .eq('profile_id', userId);
+      
+      print('Found ${(profileProjectsResponse as List).length} project associations for user $userId');
+      
+      if ((profileProjectsResponse as List).isEmpty) {
+        print('No project associations found for user $userId');
+        // Возвращаем кэшированные данные если нет связей
+        return await OfflineService.getCachedProjects(userId);
+      }
+
+      // Получаем проекты через связанную таблицу profiles_projects
+      final response = await _supabase
+          .from('profiles_projects')
+          .select('''
+            project_id,
+            projects!inner(
+              id,
+              name
+            )
+          ''')
+          .eq('profile_id', userId)
+          .order('projects(name)', ascending: true)
+          .timeout(const Duration(seconds: 10));
+
+      print('Raw response from profiles_projects join: $response');
+
+      final projects = <legacy.Project>[];
+      for (final item in (response as List)) {
+        final projectData = item['projects'];
+        final projectId = projectData['id'] as int;
+        
+        // Получаем здания для каждого проекта (без проверки доступа для избежания рекурсии)
+        final buildings = await _getBuildingsForProjectDirect(projectId);
+        
+        // Создаем проект с полученными зданиями
+        final project = legacy.Project(
+          id: projectData['id'],
+          name: projectData['name'],
+          buildings: buildings,
+        );
+        
+        projects.add(project);
+        
+        // Кэшируем проект
+        await OfflineService.cacheProjectData(project, userId);
+      }
+
+      print('Successfully loaded ${projects.length} user projects');
+      return projects;
     } catch (e) {
-      // Log: Error fetching user projects: $e
+      print('Error fetching user projects: $e');
+      // Возвращаем кэшированные данные при ошибке
+      final userId = await getCurrentUserId();
+      if (userId != null) {
+        return await OfflineService.getCachedProjects(userId);
+      }
+      return [];
+    }
+  }
+
+  // Получить активный проект пользователя
+  static Future<legacy.Project?> getUserActiveProject() async {
+    try {
+      final userId = await getCurrentUserId();
+      if (userId == null) return null;
+
+      // Получаем ID основного проекта из SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final defaultProjectId = prefs.getInt('default_project_id_$userId');
+      
+      final projects = await getProjects();
+      
+      if (defaultProjectId != null) {
+        // Ищем основной проект среди доступных проектов
+        final defaultProject = projects.where((p) => p.id == defaultProjectId).firstOrNull;
+        if (defaultProject != null) {
+          return defaultProject;
+        }
+        // Если основной проект больше не доступен, очищаем настройку
+        await prefs.remove('default_project_id_$userId');
+      }
+      
+      // Возвращаем первый доступный проект как fallback
+      return projects.isNotEmpty ? projects.first : null;
+    } catch (e) {
+      // Log: Error fetching user active project: $e
+      return null;
+    }
+  }
+
+  // Установить основной проект пользователя
+  static Future<bool> setUserDefaultProject(int projectId) async {
+    try {
+      final userId = await getCurrentUserId();
+      if (userId == null) return false;
+
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setInt('default_project_id_$userId', projectId);
+    } catch (e) {
+      // Log: Error setting default project: $e
+      return false;
+    }
+  }
+
+  // Получить ID основного проекта пользователя
+  static Future<int?> getUserDefaultProjectId() async {
+    try {
+      final userId = await getCurrentUserId();
+      if (userId == null) return null;
+
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt('default_project_id_$userId');
+    } catch (e) {
+      // Log: Error getting default project ID: $e
+      return null;
+    }
+  }
+
+  // Очистить основной проект пользователя
+  static Future<bool> clearUserDefaultProject() async {
+    try {
+      final userId = await getCurrentUserId();
+      if (userId == null) return false;
+
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.remove('default_project_id_$userId');
+    } catch (e) {
+      // Log: Error clearing default project: $e
+      return false;
+    }
+  }
+
+  // Получить все корпуса для проекта (без проверки доступа, используется внутренне)
+  static Future<List<String>> _getBuildingsForProjectDirect(int projectId) async {
+    try {
+      // Log: Fetching buildings for project $projectId...
+      final buildingsSet = <String>{};
+      int offset = 0;
+      const limit = 1000;
+      bool hasMore = true;
+
+      // Загружаем данные пачками пока не получим все
+      while (hasMore) {
+        final response = await _supabase
+            .from('units')
+            .select('building')
+            .eq('project_id', projectId)
+            .range(offset, offset + limit - 1);
+
+        final List<dynamic> records = response as List;
+        if (records.isEmpty || records.length < limit) {
+          hasMore = false;
+        }
+
+        for (final record in records) {
+          final building = record['building'] as String?;
+          if (building != null && building.isNotEmpty) {
+            buildingsSet.add(building);
+          }
+        }
+
+        offset += limit;
+      }
+
+      final buildings = buildingsSet.toList()..sort();
+      // Log: Found ${buildings.length} buildings: $buildings
+      return buildings;
+    } catch (e) {
+      // Log: Error fetching buildings: $e
       return [];
     }
   }
@@ -48,6 +221,15 @@ class DatabaseService {
   // Получить все корпуса для проекта
   static Future<List<String>> getBuildingsForProject(int projectId) async {
     try {
+      // Проверяем, есть ли у пользователя доступ к этому проекту
+      final userProjects = await getUserProjects();
+      final hasAccess = userProjects.any((project) => project.id == projectId);
+      
+      if (!hasAccess) {
+        print('Access denied: User does not have access to project $projectId');
+        return [];
+      }
+
       // Log: Fetching buildings for project $projectId...
       final buildingsSet = <String>{};
       int offset = 0;
@@ -140,6 +322,15 @@ class DatabaseService {
   // Получить все юниты для проекта и корпуса
   static Future<List<Unit>> getUnitsForProjectAndBuilding(int projectId, String building) async {
     try {
+      // Проверяем, есть ли у пользователя доступ к этому проекту
+      final userProjects = await getUserProjects();
+      final hasAccess = userProjects.any((project) => project.id == projectId);
+      
+      if (!hasAccess) {
+        print('Access denied: User does not have access to project $projectId');
+        return [];
+      }
+
       final response = await _supabase
           .from('units')
           .select('*')
@@ -169,7 +360,15 @@ class DatabaseService {
           .eq('unit_id', unitId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((defect) => Defect.fromJson(defect)).toList();
+      final defects = (response as List).map((defect) => Defect.fromJson(defect)).toList();
+      
+      // Загружаем вложения для каждого дефекта
+      for (int i = 0; i < defects.length; i++) {
+        final attachments = await getDefectAttachments(defects[i].id);
+        defects[i] = defects[i].copyWith(attachments: attachments);
+      }
+      
+      return defects;
     } catch (e) {
       // Log: Error fetching defects: $e     
       return [];
@@ -179,13 +378,30 @@ class DatabaseService {
   // Получить все дефекты для проекта
   static Future<List<Defect>> getDefectsForProject(int projectId) async {
     try {
+      // Проверяем, есть ли у пользователя доступ к этому проекту
+      final userProjects = await getUserProjects();
+      final hasAccess = userProjects.any((project) => project.id == projectId);
+      
+      if (!hasAccess) {
+        print('Access denied: User does not have access to project $projectId');
+        return [];
+      }
+
       final response = await _supabase
           .from('defects')
           .select('*')
           .eq('project_id', projectId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((defect) => Defect.fromJson(defect)).toList();
+      final defects = (response as List).map((defect) => Defect.fromJson(defect)).toList();
+      
+      // Загружаем вложения для каждого дефекта
+      for (int i = 0; i < defects.length; i++) {
+        final attachments = await getDefectAttachments(defects[i].id);
+        defects[i] = defects[i].copyWith(attachments: attachments);
+      }
+      
+      return defects;
     } catch (e) {
       // Log: Error fetching project defects: $e     
       return [];
@@ -278,15 +494,50 @@ class DatabaseService {
   // Получить юниты с дефектами для шахматки
   static Future<Map<String, dynamic>> getUnitsWithDefectsForBuilding(int projectId, String building) async {
     try {
-      // Получаем юниты
-      final units = await getUnitsForProjectAndBuilding(projectId, building);
+      // Проверяем, есть ли у пользователя доступ к этому проекту
+      final userProjects = await getUserProjects();
+      final hasAccess = userProjects.any((project) => project.id == projectId);
+      
+      if (!hasAccess) {
+        print('Access denied: User does not have access to project $projectId');
+        return {'units': <Unit>[], 'unitsByFloor': <int, List<Unit>>{}, 'floors': <int>[]};
+      }
 
-      // Получаем все дефекты для проекта
-      final allDefects = await getDefectsForProject(projectId);
+      // Получаем юниты для здания
+      final unitsResponse = await _supabase
+          .from('units')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('building', building)
+          .order('name');
+      
+      final units = (unitsResponse as List)
+          .map((unit) => Unit.fromJson({...unit, 'defects': []}))
+          .toList();
+
+      if (units.isEmpty) {
+        return {'units': <Unit>[], 'unitsByFloor': <int, List<Unit>>{}, 'floors': <int>[]};
+      }
+
+      // Получаем ID всех юнитов для эффективного запроса дефектов
+      final unitIds = units.map((unit) => unit.id).toList();
+
+      // Получаем дефекты только для юнитов этого здания
+      final defectsResponse = await _supabase
+          .from('defects')
+          .select('*')
+          .eq('project_id', projectId)
+          .inFilter('unit_id', unitIds)
+          .order('created_at', ascending: false);
+
+      final defects = (defectsResponse as List).map((defect) => Defect.fromJson(defect)).toList();
+
+      // Для ускорения загрузки шахматки не загружаем вложения сразу
+      // Вложения будут загружены при открытии конкретного дефекта
 
       // Группируем дефекты по юнитам
       final defectsByUnit = <int, List<Defect>>{};
-      for (final defect in allDefects) {
+      for (final defect in defects) {
         if (defect.unitId != null) {
           defectsByUnit.putIfAbsent(defect.unitId!, () => []).add(defect);
         }
@@ -317,8 +568,30 @@ class DatabaseService {
         'floors': unitsByFloor.keys.toList()..sort((a, b) => b.compareTo(a)), // По убыванию
       };
     } catch (e) {
-      // Log: Error fetching units with defects: $e     
+      // Log: Error fetching units with defects: $e
+      print('Error in getUnitsWithDefectsForBuilding: $e');
       return {'units': <Unit>[], 'unitsByFloor': <int, List<Unit>>{}, 'floors': <int>[]};
+    }
+  }
+
+  // Проверить доступ пользователя к дефекту через проект
+  static Future<bool> _hasAccessToDefect(int defectId) async {
+    try {
+      // Получаем проект дефекта
+      final defectResponse = await _supabase
+          .from('defects')
+          .select('project_id')
+          .eq('id', defectId)
+          .single();
+      
+      final projectId = defectResponse['project_id'] as int;
+      
+      // Проверяем доступ к проекту
+      final userProjects = await getUserProjects();
+      return userProjects.any((project) => project.id == projectId);
+    } catch (e) {
+      print('Error checking defect access: $e');
+      return false;
     }
   }
 
@@ -329,6 +602,12 @@ class DatabaseService {
     required List<int> fileBytes,
   }) async {
     try {
+      // Проверяем доступ к дефекту
+      final hasAccess = await _hasAccessToDefect(defectId);
+      if (!hasAccess) {
+        print('Access denied: User does not have access to defect $defectId');
+        return null;
+      }
       // Создаем уникальное имя файла
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileExtension = fileName.split('.').last;
@@ -397,6 +676,12 @@ class DatabaseService {
   // Получить вложения дефекта
   static Future<List<DefectAttachment>> getDefectAttachments(int defectId) async {
     try {
+      // Проверяем доступ к дефекту
+      final hasAccess = await _hasAccessToDefect(defectId);
+      if (!hasAccess) {
+        print('Access denied: User does not have access to defect $defectId');
+        return [];
+      }
       final response = await _supabase
           .from('defect_attachments')
           .select('''
@@ -516,6 +801,12 @@ class DatabaseService {
     required DateTime fixDate,
   }) async {
     try {
+      // Проверяем доступ к дефекту
+      final hasAccess = await _hasAccessToDefect(defectId);
+      if (!hasAccess) {
+        print('Access denied: User does not have access to defect $defectId');
+        return null;
+      }
       final updates = <String, dynamic>{
         'status_id': 9, // НА ПРОВЕРКУ
         'fixed_at': fixDate.toIso8601String().split('T')[0],
@@ -545,6 +836,12 @@ class DatabaseService {
   // Обновить статус дефекта
   static Future<Defect?> updateDefectStatus({required int defectId, required int statusId}) async {
     try {
+      // Проверяем доступ к дефекту
+      final hasAccess = await _hasAccessToDefect(defectId);
+      if (!hasAccess) {
+        print('Access denied: User does not have access to defect $defectId');
+        return null;
+      }
       final response = await _supabase
           .from('defects')
           .update({
@@ -563,12 +860,72 @@ class DatabaseService {
     }
   }
 
+  // Обновить статус гарантии дефекта
+  static Future<Defect?> updateDefectWarranty({required int defectId, required bool isWarranty}) async {
+    try {
+      // Если офлайн, добавляем операцию в очередь синхронизации
+      if (!OfflineService.isOnline) {
+        print('Offline mode: queuing warranty update for defect $defectId');
+        await OfflineService.addPendingSync(
+          'update_defect_warranty',
+          'defect',
+          defectId,
+          {'is_warranty': isWarranty},
+        );
+        
+        // Возвращаем обновленный дефект из локального кэша
+        // Здесь нужно будет реализовать обновление локального кэша
+        // Пока возвращаем null чтобы указать что операция в очереди
+        return null;
+      }
+
+      // Проверяем доступ к дефекту
+      final hasAccess = await _hasAccessToDefect(defectId);
+      if (!hasAccess) {
+        print('Access denied: User does not have access to defect $defectId');
+        return null;
+      }
+      
+      final response = await _supabase
+          .from('defects')
+          .update({
+            'is_warranty': isWarranty,
+            'updated_by': _supabase.auth.currentUser?.id,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', defectId)
+          .select()
+          .single();
+
+      return Defect.fromJson(response);
+    } catch (e) {
+      print('Error updating defect warranty status: $e');
+      
+      // При ошибке сети добавляем в очередь синхронизации
+      await OfflineService.addPendingSync(
+        'update_defect_warranty',
+        'defect',
+        defectId,
+        {'is_warranty': isWarranty},
+      );
+      
+      return null;
+    }
+  }
+
   // Получить URL для просмотра файла
   static String? getAttachmentUrl(String filePath) {
     try {
+      // Проверяем, является ли filePath уже полным URL
+      if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+        return filePath;
+      }
+      
+      // Если это относительный путь, строим полный URL
       return _supabase.storage.from('attachments').getPublicUrl(filePath);
     } catch (e) {
-      // Log: Error getting attachment URL: $e     
+      // Log: Error getting attachment URL: $e
+      print('Error getting attachment URL: $e');
       return null;
     }
   }
@@ -641,6 +998,57 @@ class DatabaseService {
       // Log: Error getting user statistics: $e     
       return {
         'totalProjects': 0,
+        'totalDefects': 0,
+        'activeDefects': 0,
+        'closedDefects': 0,
+      };
+    }
+  }
+
+  // Получить статистику по конкретному проекту
+  static Future<Map<String, dynamic>> getProjectStatistics(int projectId) async {
+    try {
+      final userId = await getCurrentUserId();
+      if (userId == null) return {};
+
+      // Получаем количество квартир в проекте
+      final unitsResponse = await _supabase
+          .from('units')
+          .select('id')
+          .eq('project_id', projectId)
+          .count();
+
+      // Получаем статистику по дефектам в проекте
+      final defectsResponse = await _supabase
+          .from('defects')
+          .select('id, status_id')
+          .eq('project_id', projectId)
+          .count();
+
+      final activeDefectsResponse = await _supabase
+          .from('defects')
+          .select('id')
+          .eq('project_id', projectId)
+          .inFilter('status_id', [1, 2, 9]) // Активные статусы
+          .count();
+
+      final closedDefectsResponse = await _supabase
+          .from('defects')
+          .select('id')
+          .eq('project_id', projectId)
+          .inFilter('status_id', [3, 10]) // Закрытые статусы
+          .count();
+
+      return {
+        'totalUnits': unitsResponse.count,
+        'totalDefects': defectsResponse.count,
+        'activeDefects': activeDefectsResponse.count,
+        'closedDefects': closedDefectsResponse.count,
+      };
+    } catch (e) {
+      // Log: Error getting project statistics: $e     
+      return {
+        'totalUnits': 0,
         'totalDefects': 0,
         'activeDefects': 0,
         'closedDefects': 0,

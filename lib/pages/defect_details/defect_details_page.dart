@@ -5,9 +5,10 @@ import '../../entities/project/model/project.dart';
 import '../../models/project.dart' as legacy;
 import '../../shared/ui/components/feedback/empty_state.dart';
 import '../../widgets/defect_card/defect_card.dart';
+import '../../widgets/file_attachment_widget.dart';
 
 
-class DefectDetailsPage extends StatelessWidget {
+class DefectDetailsPage extends StatefulWidget {
   const DefectDetailsPage({
     super.key,
     required this.unit,
@@ -34,6 +35,37 @@ class DefectDetailsPage extends StatelessWidget {
   final Function(Defect)? onMarkFixed;
 
   @override
+  State<DefectDetailsPage> createState() => _DefectDetailsPageState();
+}
+
+class _DefectDetailsPageState extends State<DefectDetailsPage> {
+  bool _hideClosedDefects = false;
+  List<Defect> _defects = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _defects = widget.unit.defects;
+  }
+
+  @override
+  void didUpdateWidget(DefectDetailsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.unit != widget.unit) {
+      _defects = widget.unit.defects;
+    }
+  }
+
+  void _updateDefect(Defect updatedDefect) {
+    setState(() {
+      final index = _defects.indexWhere((d) => d.id == updatedDefect.id);
+      if (index != -1) {
+        _defects[index] = updatedDefect;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
@@ -46,7 +78,7 @@ class DefectDetailsPage extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: unit.defects.isEmpty
+            child: _defects.isEmpty
                 ? _buildEmptyState()
                 : _buildDefectsList(),
           ),
@@ -56,13 +88,6 @@ class DefectDetailsPage extends StatelessWidget {
   }
 
   Widget _buildHeader(ThemeData theme) {
-    final activeDefects = unit.defects
-        .where((d) => d.statusId == 1 || d.statusId == 2)
-        .length;
-    final completedDefects = unit.defects
-        .where((d) => d.statusId == 3)
-        .length;
-
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.primary,
@@ -78,7 +103,7 @@ class DefectDetailsPage extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                onPressed: onBack,
+                onPressed: widget.onBack,
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.white.withValues(alpha: 0.2),
@@ -90,7 +115,7 @@ class DefectDetailsPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Квартира ${unit.name}',
+                      'Квартира ${widget.unit.name}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -98,14 +123,14 @@ class DefectDetailsPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${unit.floor} этаж, $building Корпус',
+                      '${widget.unit.floor} этаж, ${widget.building} Корпус',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 14,
                       ),
                     ),
                     Text(
-                      'ЖК "${project.name}"',
+                      'ЖК "${widget.project.name}"',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 14,
@@ -114,8 +139,27 @@ class DefectDetailsPage extends StatelessWidget {
                   ],
                 ),
               ),
+              // Filter button
               IconButton(
-                onPressed: onAddDefect,
+                onPressed: () {
+                  setState(() {
+                    _hideClosedDefects = !_hideClosedDefects;
+                  });
+                },
+                icon: Icon(
+                  _hideClosedDefects ? Icons.filter_alt : Icons.filter_alt_outlined,
+                  color: Colors.white,
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: _hideClosedDefects 
+                      ? Colors.orange.withValues(alpha: 0.8)
+                      : Colors.white.withValues(alpha: 0.2),
+                ),
+                tooltip: _hideClosedDefects ? 'Показать все дефекты' : 'Скрыть закрытые дефекты',
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: widget.onAddDefect,
                 icon: const Icon(Icons.add, color: Colors.white),
                 style: IconButton.styleFrom(
                   backgroundColor: theme.colorScheme.tertiary,
@@ -123,70 +167,11 @@ class DefectDetailsPage extends StatelessWidget {
               ),
             ],
           ),
-          
-          const SizedBox(height: 16),
-          
-          // Statistics
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  '${unit.defects.length}',
-                  'Дефектов',
-                  theme,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  '$activeDefects',
-                  'Активных',
-                  theme,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  '$completedDefects',
-                  'Устранено',
-                  theme,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String value, String label, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildEmptyState() {
     return EmptyState(
@@ -194,20 +179,59 @@ class DefectDetailsPage extends StatelessWidget {
       subtitle: 'В этой квартире пока не зарегистрированы дефекты',
       emoji: '🏠',
       actionText: 'Добавить дефект',
-      onAction: onAddDefect,
+      onAction: widget.onAddDefect,
     );
   }
 
   Widget _buildDefectsList() {
+    // Фильтруем дефекты в зависимости от состояния фильтра
+    final filteredDefects = _hideClosedDefects
+        ? _defects.where((defect) {
+            // Ищем статус "Закрыто" или "Устранено" (обычно ID 3 или 5)
+            final defectStatus = widget.defectStatuses.firstWhere(
+              (s) => s.id == defect.statusId,
+              orElse: () => legacy.DefectStatus(
+                id: 0,
+                entity: 'defect',
+                name: 'Неизвестный статус',
+                color: '#999999',
+              ),
+            );
+            // Скрываем дефекты со статусом "Устранено", "Закрыто", или содержащие эти слова
+            final statusName = defectStatus.name.toLowerCase();
+            return !statusName.contains('закрыт') && 
+                   !statusName.contains('устранен') && 
+                   defect.statusId != 3 && // Обычно "Устранено"
+                   defect.statusId != 5;   // Обычно "Закрыто"
+          }).toList()
+        : _defects;
+
+    if (filteredDefects.isEmpty) {
+      if (_hideClosedDefects && _defects.isNotEmpty) {
+        return EmptyState(
+          title: 'Все дефекты закрыты',
+          subtitle: 'Остались только закрытые дефекты',
+          emoji: '✅',
+          actionText: 'Показать все',
+          onAction: () {
+            setState(() {
+              _hideClosedDefects = false;
+            });
+          },
+        );
+      }
+      return _buildEmptyState();
+    }
+
     return ListView.builder(
-      itemCount: unit.defects.length,
+      itemCount: filteredDefects.length,
       itemBuilder: (context, index) {
-        final defect = unit.defects[index];
-        final defectType = defectTypes.firstWhere(
+        final defect = filteredDefects[index];
+        final defectType = widget.defectTypes.firstWhere(
           (t) => t.id == defect.typeId,
           orElse: () => legacy.DefectType(id: 0, name: 'Неизвестный тип'),
         );
-        final defectStatus = defectStatuses.firstWhere(
+        final defectStatus = widget.defectStatuses.firstWhere(
           (s) => s.id == defect.statusId,
           orElse: () => legacy.DefectStatus(
             id: 0,
@@ -221,9 +245,10 @@ class DefectDetailsPage extends StatelessWidget {
           defect: defect,
           defectType: defectType,
           defectStatus: defectStatus,
-          onStatusTap: onStatusTap != null ? () => onStatusTap!(defect) : null,
-          onAttachFiles: onAttachFiles != null ? () => onAttachFiles!(defect) : null,
-          onMarkFixed: onMarkFixed != null ? () => onMarkFixed!(defect) : null,
+          onStatusTap: widget.onStatusTap != null ? () => widget.onStatusTap!(defect) : null,
+          onAttachFiles: widget.onAttachFiles != null ? () => widget.onAttachFiles!(defect) : null,
+          onMarkFixed: widget.onMarkFixed != null ? () => widget.onMarkFixed!(defect) : null,
+          onDefectUpdated: _updateDefect,
         );
       },
     );

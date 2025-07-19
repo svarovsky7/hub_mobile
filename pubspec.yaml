@@ -55,6 +55,15 @@ dependencies:
   
   # URL launcher for opening files
   url_launcher: ^6.3.1
+  
+  # Open files with system default applications
+  open_file: ^3.3.2
+  
+  # File path management
+  path_provider: ^2.1.4
+  
+  # HTTP requests
+  http: ^1.2.2
 
   # State management
   flutter_bloc: ^8.1.6
@@ -74,6 +83,9 @@ dependencies:
   # Network and caching
   dio: ^5.7.0
   cached_network_image: ^3.4.1
+  
+  # Connectivity monitoring
+  connectivity_plus: ^6.0.5
 
 dev_dependencies:
   flutter_test:

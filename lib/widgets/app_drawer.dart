@@ -10,8 +10,60 @@ import '../services/database_service.dart';
 import '../providers/theme_provider.dart';
 import '../main.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
+
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
+  int? _defaultProjectId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultProject();
+  }
+
+  Future<void> _loadDefaultProject() async {
+    final defaultProjectId = await DatabaseService.getUserDefaultProjectId();
+    if (mounted) {
+      setState(() {
+        _defaultProjectId = defaultProjectId;
+      });
+    }
+  }
+
+  Future<void> _setAsDefault(int projectId) async {
+    final success = await DatabaseService.setUserDefaultProject(projectId);
+    if (success && mounted) {
+      setState(() {
+        _defaultProjectId = projectId;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Проект установлен как основной'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _clearDefault() async {
+    final success = await DatabaseService.clearUserDefaultProject();
+    if (success && mounted) {
+      setState(() {
+        _defaultProjectId = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Основной проект убран'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,11 +116,9 @@ class AppDrawer extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return DrawerHeader(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-            ),
-            child: const Center(
-              child: CircularProgressIndicator(color: Colors.white),
+            decoration: const BoxDecoration(),
+            child: Center(
+              child: CircularProgressIndicator(color: theme.colorScheme.primary),
             ),
           );
         }
@@ -78,9 +128,7 @@ class AppDrawer extends StatelessWidget {
         final userEmail = userInfo['email'] ?? '';
         
         return DrawerHeader(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary,
-          ),
+          decoration: const BoxDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
@@ -88,7 +136,7 @@ class AppDrawer extends StatelessWidget {
               // Аватар
               CircleAvatar(
                 radius: 30,
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                backgroundColor: theme.colorScheme.primary,
                 child: Text(
                   userName.isNotEmpty ? userName[0].toUpperCase() : 'П',
                   style: const TextStyle(
@@ -104,8 +152,8 @@ class AppDrawer extends StatelessWidget {
               // Имя пользователя
               Text(
                 userName,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -116,7 +164,7 @@ class AppDrawer extends StatelessWidget {
                 Text(
                   userEmail,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 14,
                   ),
                 ),
@@ -167,6 +215,7 @@ class AppDrawer extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final project = userProjects[index];
                     final isSelected = selectedProject?.id == project.id;
+                    final isDefault = _defaultProjectId == project.id;
                     
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -179,12 +228,34 @@ class AppDrawer extends StatelessWidget {
                           Icons.business,
                           color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
                         ),
-                        title: Text(
-                          project.name,
-                          style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                          ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                project.name,
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            if (isDefault)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'Основной',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         subtitle: Text(
                           '${project.buildings.length} корпусов',
@@ -193,9 +264,34 @@ class AppDrawer extends StatelessWidget {
                             fontSize: 12,
                           ),
                         ),
-                        trailing: isSelected 
-                            ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
-                            : null,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Кнопка установки как основной
+                            GestureDetector(
+                              onTap: () {
+                                if (isDefault) {
+                                  _clearDefault();
+                                } else {
+                                  _setAsDefault(project.id);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  isDefault ? Icons.star : Icons.star_border,
+                                  color: isDefault 
+                                      ? theme.colorScheme.secondary 
+                                      : theme.colorScheme.onSurfaceVariant,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                            // Индикатор выбранного проекта
+                            if (isSelected) 
+                              Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20),
+                          ],
+                        ),
                         onTap: () {
                           Navigator.of(context).pop();
                           // Конвертируем legacy.Project в entities.Project для ProjectBloc
@@ -223,71 +319,128 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildStatisticsSection(BuildContext context, ThemeData theme) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _getUserStatistics(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return BlocBuilder<ProjectBloc, ProjectState>(
+      builder: (context, projectState) {
+        // Проверяем, что состояние загружено и есть выбранный проект
+        if (projectState is! ProjectStateLoaded) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
           );
         }
         
-        final stats = snapshot.data ?? {};
+        final selectedProject = projectState.selectedProject;
         
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Статистика',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+        if (selectedProject == null) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Статистика',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Выберите проект для просмотра статистики',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ],
             ),
+          );
+        }
+
+        return FutureBuilder<Map<String, dynamic>>(
+          key: ValueKey(selectedProject.id), // Rebuild when project changes
+          future: _getProjectStatistics(selectedProject.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
             
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Card(
-                child: Padding(
+            final stats = snapshot.data ?? {};
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildStatItem(
-                        'Всего проектов',
-                        '${stats['totalProjects'] ?? 0}',
-                        Icons.folder_outlined,
-                        theme,
+                      Text(
+                        'Статистика проекта',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      _buildStatItem(
-                        'Всего дефектов',
-                        '${stats['totalDefects'] ?? 0}',
-                        Icons.bug_report_outlined,
-                        theme,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildStatItem(
-                        'Активных дефектов',
-                        '${stats['activeDefects'] ?? 0}',
-                        Icons.warning_outlined,
-                        theme,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildStatItem(
-                        'Закрытых дефектов',
-                        '${stats['closedDefects'] ?? 0}',
-                        Icons.check_circle_outline,
-                        theme,
+                      Text(
+                        selectedProject.name,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
-          ],
+                
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          _buildStatItem(
+                            'Всего квартир',
+                            '${stats['totalUnits'] ?? 0}',
+                            Icons.apartment_outlined,
+                            theme,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildStatItem(
+                            'Всего дефектов',
+                            '${stats['totalDefects'] ?? 0}',
+                            Icons.bug_report_outlined,
+                            theme,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildStatItem(
+                            'Активных дефектов',
+                            '${stats['activeDefects'] ?? 0}',
+                            Icons.warning_outlined,
+                            theme,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildStatItem(
+                            'Закрытых дефектов',
+                            '${stats['closedDefects'] ?? 0}',
+                            Icons.check_circle_outline,
+                            theme,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -401,6 +554,15 @@ class AppDrawer extends StatelessWidget {
       return await DatabaseService.getUserStatistics();
     } catch (e) {
       // Log error: Error getting user statistics: $e
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getProjectStatistics(int projectId) async {
+    try {
+      return await DatabaseService.getProjectStatistics(projectId);
+    } catch (e) {
+      // Log error: Error getting project statistics: $e
       return {};
     }
   }

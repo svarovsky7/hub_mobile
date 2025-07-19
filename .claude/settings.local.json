@@ -19,7 +19,8 @@
       "Bash(bash:*)",
       "Bash(sed:*)",
       "Bash(perl:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(/bin/bash -c \"flutter pub get\")"
     ],
     "deny": []
   }

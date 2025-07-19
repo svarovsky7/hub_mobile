@@ -15,6 +15,7 @@ import '../../services/database_service.dart';
 import '../../widgets/dialogs/status_change_dialog.dart';
 import '../../widgets/dialogs/mark_fixed_dialog.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/connectivity_indicator.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -43,98 +44,179 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _showOnlyDefects = false;
   Map<int, String> _statusColors = {};
   int? _selectedDefectType;
+  String? _lastLoadedBuilding;
 
   @override
   void initState() {
     super.initState();
     _loadStaticData();
-    // Trigger project loading
+    // Trigger project loading and auto-select active project
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProjectBloc>().add(const ProjectEventLoad());
+      _loadActiveProject();
     });
+  }
+
+  Future<void> _loadActiveProject() async {
+    try {
+      print('Loading active project...');
+      final activeProject = await DatabaseService.getUserActiveProject();
+      
+      if (activeProject != null && mounted) {
+        print('Found active project: ${activeProject.name} with ${activeProject.buildings.length} buildings');
+        
+        // Convert legacy.Project to entities.Project
+        final entitiesProject = Project(
+          id: activeProject.id,
+          name: activeProject.name,
+          buildings: activeProject.buildings,
+        );
+        
+        // Auto-select the active project
+        context.read<ProjectBloc>().add(ProjectEventSelectProject(entitiesProject));
+        
+        // Auto-select first building if available to load chess board
+        if (activeProject.buildings.isNotEmpty) {
+          final firstBuilding = activeProject.buildings.first;
+          print('Auto-selecting first building: $firstBuilding');
+          context.read<ProjectBloc>().add(ProjectEventSelectBuilding(firstBuilding));
+        } else {
+          print('No buildings found for project ${activeProject.name}');
+        }
+      } else {
+        print('No active project found, trying to select first available project');
+        // Если нет активного проекта, пробуем выбрать первый доступный
+        await _loadFirstAvailableProject();
+      }
+    } catch (e) {
+      print('Error loading active project: $e');
+      // В случае ошибки пробуем загрузить первый доступный проект
+      await _loadFirstAvailableProject();
+    }
+  }
+  
+  Future<void> _loadFirstAvailableProject() async {
+    try {
+      final projects = await DatabaseService.getProjects();
+      if (projects.isNotEmpty && mounted) {
+        final firstProject = projects.first;
+        print('Selecting first available project: ${firstProject.name}');
+        
+        final entitiesProject = Project(
+          id: firstProject.id,
+          name: firstProject.name,
+          buildings: firstProject.buildings,
+        );
+        
+        context.read<ProjectBloc>().add(ProjectEventSelectProject(entitiesProject));
+        
+        if (firstProject.buildings.isNotEmpty) {
+          final firstBuilding = firstProject.buildings.first;
+          print('Auto-selecting first building: $firstBuilding');
+          context.read<ProjectBloc>().add(ProjectEventSelectBuilding(firstBuilding));
+        }
+      } else {
+        print('No projects available for user');
+      }
+    } catch (e) {
+      print('Error loading first available project: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
-      body: SafeArea(
-        child: BlocListener<ProjectBloc, ProjectState>(
-          listenWhen: (previous, current) {
-            // Слушаем только значимые изменения
-            if (previous is ProjectStateLoaded && current is ProjectStateLoaded) {
-              final projectChanged = previous.selectedProject?.id != current.selectedProject?.id;
-              final buildingChanged = previous.selectedBuilding != current.selectedBuilding;
-              
-              // Избегаем лишних срабатываний при одинаковых значениях
-              if (!projectChanged && !buildingChanged) return false;
-              
-              return projectChanged || buildingChanged;
-            }
-            // Слушаем только первый переход в loaded состояние
-            return current is ProjectStateLoaded && previous is ProjectStateInitial;
-          },
-          listener: (context, state) {
-            if (state is ProjectStateLoaded) {
-              // Только при смене проекта возвращаемся к главному экрану
-              if (_currentView != DashboardView.home) {
-                setState(() {
-                  _currentView = DashboardView.home;
-                });
-              }
-              
-              if (state.selectedProject != null && state.selectedBuilding != null) {
-                _loadUnits(state.selectedProject!.id, state.selectedBuilding!);
-              } else {
-                // Очищаем юниты если нет выбранного проекта или корпуса
-                if (_units.isNotEmpty || _selectedUnit != null) {
-                  setState(() {
-                    _units = [];
-                    _selectedUnit = null;
-                  });
-                }
-              }
-            }
-          },
-          child: BlocBuilder<ProjectBloc, ProjectState>(
-            buildWhen: (previous, current) {
-              // Перестраиваем только при смене типа состояния или значимых изменениях
-              return previous.runtimeType != current.runtimeType ||
-                     (previous is ProjectStateLoaded && 
-                      current is ProjectStateLoaded &&
-                      (previous.projects != current.projects ||
-                       previous.selectedProject?.id != current.selectedProject?.id ||
-                       previous.selectedBuilding != current.selectedBuilding));
-            },
-            builder: (context, state) {
-            if (state is ProjectStateInitial) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is ProjectStateLoading) {
-              return const LoadingOverlay(
-                isLoading: true,
-                child: SizedBox.expand(),
-              );
-            } else if (state is ProjectStateLoaded) {
-              return _buildContent(
-                state.projects,
-                state.selectedProject,
-                state.selectedBuilding,
-              );
-            } else if (state is ProjectStateError) {
-              return EmptyState(
-                title: 'Ошибка загрузки',
-                subtitle: state.message,
-                icon: Icons.error_outline,
-                actionText: 'Повторить',
-                onAction: () => context.read<ProjectBloc>().add(
-                      const ProjectEventRefresh(),
-                    ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-        ),
+      body: Column(
+        children: [
+          const ConnectivityIndicator(),
+          Expanded(
+            child: SafeArea(
+              child: BlocListener<ProjectBloc, ProjectState>(
+                listenWhen: (previous, current) {
+                  // Слушаем переходы в loaded состояние или значимые изменения
+                  if (current is ProjectStateLoaded) {
+                    // Первый раз загружаемся
+                    if (previous is! ProjectStateLoaded) {
+                      return true;
+                    }
+                    
+                    // Проверяем изменения
+                    final projectChanged = previous.selectedProject?.id != current.selectedProject?.id;
+                    final buildingChanged = previous.selectedBuilding != current.selectedBuilding;
+                    
+                    return projectChanged || buildingChanged;
+                  }
+                  return false;
+                },
+                listener: (context, state) {
+                  if (state is ProjectStateLoaded) {
+                    print('ProjectStateLoaded - Project: ${state.selectedProject?.name}, Building: ${state.selectedBuilding}');
+                    
+                    // Только при смене проекта возвращаемся к главному экрану
+                    if (_currentView != DashboardView.home) {
+                      setState(() {
+                        _currentView = DashboardView.home;
+                      });
+                    }
+                    
+                    if (state.selectedProject != null && state.selectedBuilding != null) {
+                      print('Loading units for project ${state.selectedProject!.id}, building ${state.selectedBuilding}');
+                      _loadUnits(state.selectedProject!.id, state.selectedBuilding!);
+                    } else {
+                      print('Missing project or building - Project: ${state.selectedProject?.name}, Building: ${state.selectedBuilding}');
+                      // Очищаем юниты если нет выбранного проекта или корпуса
+                      if (_units.isNotEmpty || _selectedUnit != null) {
+                        setState(() {
+                          _units = [];
+                          _selectedUnit = null;
+                        });
+                      }
+                    }
+                  }
+                },
+                child: BlocBuilder<ProjectBloc, ProjectState>(
+                  buildWhen: (previous, current) {
+                    // Перестраиваем только при смене типа состояния или значимых изменениях
+                    return previous.runtimeType != current.runtimeType ||
+                           (previous is ProjectStateLoaded && 
+                            current is ProjectStateLoaded &&
+                            (previous.projects != current.projects ||
+                             previous.selectedProject?.id != current.selectedProject?.id ||
+                             previous.selectedBuilding != current.selectedBuilding));
+                  },
+                  builder: (context, state) {
+                    if (state is ProjectStateInitial) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (state is ProjectStateLoading) {
+                      return const LoadingOverlay(
+                        isLoading: true,
+                        child: SizedBox.expand(),
+                      );
+                    } else if (state is ProjectStateLoaded) {
+                      return _buildContent(
+                        state.projects,
+                        state.selectedProject,
+                        state.selectedBuilding,
+                      );
+                    } else if (state is ProjectStateError) {
+                      return EmptyState(
+                        title: 'Ошибка загрузки',
+                        subtitle: state.message,
+                        icon: Icons.error_outline,
+                        actionText: 'Повторить',
+                        onAction: () => context.read<ProjectBloc>().add(
+                              const ProjectEventRefresh(),
+                            ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -273,10 +355,28 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  void _onUnitTap(Unit unit) {
+  void _onUnitTap(Unit unit) async {
     setState(() {
       _selectedUnit = unit;
       _currentView = DashboardView.apartment;
+    });
+    
+    // Загружаем вложения для дефектов при первом открытии юнита
+    final defectsWithAttachments = <Defect>[];
+    for (final defect in unit.defects) {
+      final attachments = await DatabaseService.getDefectAttachments(defect.id);
+      defectsWithAttachments.add(defect.copyWith(attachments: attachments));
+    }
+    
+    final unitWithAttachments = unit.copyWith(defects: defectsWithAttachments);
+    
+    setState(() {
+      _selectedUnit = unitWithAttachments;
+      // Также обновляем юнит в общем списке
+      final unitIndex = _units.indexWhere((u) => u.id == unit.id);
+      if (unitIndex != -1) {
+        _units[unitIndex] = unitWithAttachments;
+      }
     });
   }
 
@@ -308,32 +408,64 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() {
         _units = [];
         _selectedUnit = null;
+        _lastLoadedBuilding = null;
       });
       return;
     }
 
+    // Сохраняем текущий корпус для проверки актуальности результата
+    final currentBuilding = building;
+    
     setState(() {
       _isLoadingUnits = true;
-      _units = []; // Очищаем предыдущие юниты
-      _selectedUnit = null; // Сбрасываем выбранный юнит
+      // Не очищаем юниты сразу, чтобы избежать мигания
+      _selectedUnit = null;
+      _lastLoadedBuilding = building;
     });
 
     try {
+      print('Loading units for project $projectId, building: $building');
       final result = await DatabaseService.getUnitsWithDefectsForBuilding(
         projectId,
         building,
       );
-      setState(() {
-        _units = result['units'] as List<Unit>;
-      });
+      
+      final units = result['units'] as List<Unit>;
+      print('Loaded ${units.length} units');
+      
+      // Проверяем, что пользователь еще на том же корпусе
+      if (currentBuilding == _lastLoadedBuilding && mounted) {
+        setState(() {
+          _units = units;
+        });
+        
+        // Показываем сообщение только если прошло достаточно времени и корпус не изменился
+        if (units.isEmpty) {
+          // Добавляем небольшую задержку, чтобы пользователь успел переключиться
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // Проверяем еще раз, что корпус не изменился
+          if (currentBuilding == _lastLoadedBuilding && mounted && _units.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('В этом корпусе нет квартир'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
     } catch (e) {
-      if (mounted) {
+      print('Error loading units: $e');
+      if (mounted && currentBuilding == _lastLoadedBuilding) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка загрузки: $e')),
         );
       }
     } finally {
-      setState(() => _isLoadingUnits = false);
+      if (mounted && currentBuilding == _lastLoadedBuilding) {
+        setState(() => _isLoadingUnits = false);
+      }
     }
   }
 
@@ -598,18 +730,38 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _refreshCurrentUnit() async {
     if (_selectedUnit != null) {
+      final selectedUnitId = _selectedUnit!.id; // Сохраняем ID выбранной квартиры
       final state = context.read<ProjectBloc>().state;
       if (state is ProjectStateLoaded &&
           state.selectedProject != null &&
           state.selectedBuilding != null) {
-        await _loadUnits(state.selectedProject!.id, state.selectedBuilding);
-        // Update selected unit with fresh data
-        final updatedUnit = _units.firstWhere(
-          (u) => u.id == _selectedUnit!.id,
+        
+        // Загружаем обновленные данные без сброса _selectedUnit
+        final result = await DatabaseService.getUnitsWithDefectsForBuilding(
+          state.selectedProject!.id,
+          state.selectedBuilding!,
+        );
+        
+        final units = result['units'] as List<Unit>;
+        
+        // Находим обновленную выбранную квартиру
+        final updatedUnit = units.firstWhere(
+          (u) => u.id == selectedUnitId,
           orElse: () => _selectedUnit!,
         );
+        
+        // Загружаем вложения для дефектов текущего юнита
+        final defectsWithAttachments = <Defect>[];
+        for (final defect in updatedUnit.defects) {
+          final attachments = await DatabaseService.getDefectAttachments(defect.id);
+          defectsWithAttachments.add(defect.copyWith(attachments: attachments));
+        }
+        
+        final unitWithAttachments = updatedUnit.copyWith(defects: defectsWithAttachments);
+        
         setState(() {
-          _selectedUnit = updatedUnit;
+          _units = units; // Обновляем общий список
+          _selectedUnit = unitWithAttachments; // Сохраняем выбранную квартиру с обновленными данными
         });
       }
     }

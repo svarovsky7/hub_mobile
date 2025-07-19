@@ -6,6 +6,7 @@ import 'app/app.dart';
 import 'app/theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'screens/login_screen.dart';
+import 'services/offline_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,9 @@ Future<void> main() async {
   );
   
   // Log: Supabase initialized successfully
+  
+  // Инициализируем офлайн-сервис
+  await OfflineService.initialize();
   
   runApp(
     ChangeNotifierProvider(
