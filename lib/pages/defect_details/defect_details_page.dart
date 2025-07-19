@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/unit.dart';
 import '../../models/defect.dart';
 import '../../entities/project/model/project.dart';
-import '../../models/project.dart' as Legacy;
+import '../../models/project.dart' as legacy;
 import '../../shared/ui/components/feedback/empty_state.dart';
-import '../../shared/ui/components/buttons/app_button.dart';
 import '../../widgets/defect_card/defect_card.dart';
 
 
@@ -26,8 +25,8 @@ class DefectDetailsPage extends StatelessWidget {
   final Unit unit;
   final Project project;
   final String building;
-  final List<Legacy.DefectType> defectTypes;
-  final List<Legacy.DefectStatus> defectStatuses;
+  final List<legacy.DefectType> defectTypes;
+  final List<legacy.DefectStatus> defectStatuses;
   final VoidCallback onBack;
   final VoidCallback onAddDefect;
   final Function(Defect)? onStatusTap;
@@ -66,14 +65,7 @@ class DefectDetailsPage extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withBlue(
-              (theme.colorScheme.primary.blue * 0.8).round(),
-            ),
-          ],
-        ),
+        color: theme.colorScheme.primary,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
@@ -89,7 +81,7 @@ class DefectDetailsPage extends StatelessWidget {
                 onPressed: onBack,
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               const SizedBox(width: 12),
@@ -106,9 +98,16 @@ class DefectDetailsPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${unit.floor} этаж • ЖК "${project.name}" • $building',
+                      '${unit.floor} этаж, $building Корпус',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      'ЖК "${project.name}"',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 14,
                       ),
                     ),
@@ -164,7 +163,7 @@ class DefectDetailsPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -180,7 +179,7 @@ class DefectDetailsPage extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 12,
             ),
           ),
@@ -206,11 +205,11 @@ class DefectDetailsPage extends StatelessWidget {
         final defect = unit.defects[index];
         final defectType = defectTypes.firstWhere(
           (t) => t.id == defect.typeId,
-          orElse: () => Legacy.DefectType(id: 0, name: 'Неизвестный тип'),
+          orElse: () => legacy.DefectType(id: 0, name: 'Неизвестный тип'),
         );
         final defectStatus = defectStatuses.firstWhere(
           (s) => s.id == defect.statusId,
-          orElse: () => Legacy.DefectStatus(
+          orElse: () => legacy.DefectStatus(
             id: 0,
             entity: 'defect',
             name: 'Неизвестный статус',

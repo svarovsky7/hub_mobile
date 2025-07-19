@@ -6,7 +6,6 @@ import 'app/app.dart';
 import 'app/theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'screens/login_screen.dart';
-import 'screens/debug_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,16 +15,16 @@ Future<void> main() async {
   final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
   final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
   
-  print('Initializing Supabase...');
-  print('URL: $supabaseUrl');
-  print('Has Anon Key: ${supabaseAnonKey.isNotEmpty}');
+  // Log: Initializing Supabase...
+  // Log: URL: $supabaseUrl
+  // Log: Has Anon Key: ${supabaseAnonKey.isNotEmpty}
   
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
   
-  print('Supabase initialized successfully');
+  // Log: Supabase initialized successfully
   
   runApp(
     ChangeNotifierProvider(

@@ -8,7 +8,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:hub_mobile/main.dart';
 
 class _TestApp extends StatelessWidget {
   const _TestApp();

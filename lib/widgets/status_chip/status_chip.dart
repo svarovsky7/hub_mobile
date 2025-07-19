@@ -20,7 +20,6 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final effectiveTextColor = textColor ?? 
         (ThemeData.estimateBrightnessForColor(color) == Brightness.dark 
             ? Colors.white 

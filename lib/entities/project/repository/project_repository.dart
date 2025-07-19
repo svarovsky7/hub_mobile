@@ -1,5 +1,5 @@
 import '../model/project.dart';
-import '../../../services/database_service.dart' as DB;
+import '../../../services/database_service.dart' as db;
 
 abstract class ProjectRepository {
   Future<List<Project>> getProjects();
@@ -15,14 +15,14 @@ class ProjectRepositoryImpl implements ProjectRepository {
   @override
   Future<List<Project>> getProjects() async {
     try {
-      final projects = await DB.DatabaseService.getProjects();
+      final projects = await db.DatabaseService.getProjects();
       return projects.map((p) => Project(
         id: p.id,
         name: p.name,
         buildings: p.buildings,
       )).toList();
     } catch (e) {
-      print('Repository error loading projects: $e');
+      // Log error: Repository error loading projects: $e
       return [];
     }
   }
@@ -30,9 +30,9 @@ class ProjectRepositoryImpl implements ProjectRepository {
   @override
   Future<List<String>> getBuildingsForProject(int projectId) async {
     try {
-      return await DB.DatabaseService.getBuildingsForProject(projectId);
+      return await db.DatabaseService.getBuildingsForProject(projectId);
     } catch (e) {
-      print('Repository error loading buildings: $e');
+      // Log error: Repository error loading buildings: $e
       return [];
     }
   }
@@ -40,13 +40,13 @@ class ProjectRepositoryImpl implements ProjectRepository {
   @override
   Future<List<DefectType>> getDefectTypes() async {
     try {
-      final types = await DB.DatabaseService.getDefectTypes();
+      final types = await db.DatabaseService.getDefectTypes();
       return types.map((t) => DefectType(
         id: t.id,
         name: t.name,
       )).toList();
     } catch (e) {
-      print('Repository error loading defect types: $e');
+      // Log error: Repository error loading defect types: $e
       return [];
     }
   }
@@ -54,7 +54,7 @@ class ProjectRepositoryImpl implements ProjectRepository {
   @override
   Future<List<DefectStatus>> getDefectStatuses() async {
     try {
-      final statuses = await DB.DatabaseService.getDefectStatuses();
+      final statuses = await db.DatabaseService.getDefectStatuses();
       return statuses.map((s) => DefectStatus(
         id: s.id,
         entity: s.entity,
@@ -62,7 +62,7 @@ class ProjectRepositoryImpl implements ProjectRepository {
         color: s.color,
       )).toList();
     } catch (e) {
-      print('Repository error loading defect statuses: $e');
+      // Log error: Repository error loading defect statuses: $e
       return [];
     }
   }

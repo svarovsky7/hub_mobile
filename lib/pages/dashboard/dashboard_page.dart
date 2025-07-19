@@ -4,7 +4,7 @@ import '../../entities/project/bloc/project_bloc.dart';
 import '../../entities/project/bloc/project_event.dart';
 import '../../entities/project/bloc/project_state.dart';
 import '../../entities/project/model/project.dart';
-import '../../models/project.dart' as Legacy;
+import '../../models/project.dart' as legacy;
 import '../../shared/ui/components/feedback/loading_overlay.dart';
 import '../../shared/ui/components/feedback/empty_state.dart';
 import '../building_units/building_units_page.dart';
@@ -17,7 +17,6 @@ import '../../widgets/dialogs/mark_fixed_dialog.dart';
 import '../../widgets/app_drawer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 enum DashboardView { home, apartment, addDefect }
@@ -37,11 +36,10 @@ class _DashboardPageState extends State<DashboardPage> {
   Unit? _selectedUnit;
   List<Unit> _units = [];
   bool _isLoadingUnits = false;
-  List<Legacy.DefectType> _defectTypes = [];
-  List<Legacy.DefectStatus> _defectStatuses = [];
+  List<legacy.DefectType> _defectTypes = [];
+  List<legacy.DefectStatus> _defectStatuses = [];
   List<Map<String, dynamic>> _brigades = [];
   List<Map<String, dynamic>> _contractors = [];
-  bool _isLoadingData = false;
   bool _showOnlyDefects = false;
   Map<int, String> _statusColors = {};
   int? _selectedDefectType;
@@ -340,7 +338,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadStaticData() async {
-    setState(() => _isLoadingData = true);
 
     try {
       final results = await Future.wait([
@@ -351,8 +348,8 @@ class _DashboardPageState extends State<DashboardPage> {
       ]);
 
       setState(() {
-        _defectTypes = results[0] as List<Legacy.DefectType>;
-        _defectStatuses = results[1] as List<Legacy.DefectStatus>;
+        _defectTypes = results[0] as List<legacy.DefectType>;
+        _defectStatuses = results[1] as List<legacy.DefectStatus>;
         _brigades = results[2] as List<Map<String, dynamic>>;
         _contractors = results[3] as List<Map<String, dynamic>>;
         
@@ -369,7 +366,6 @@ class _DashboardPageState extends State<DashboardPage> {
         );
       }
     } finally {
-      setState(() => _isLoadingData = false);
     }
   }
 
@@ -383,7 +379,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     final currentStatus = _defectStatuses.firstWhere(
       (s) => s.id == defect.statusId,
-      orElse: () => Legacy.DefectStatus(
+      orElse: () => legacy.DefectStatus(
         id: 0,
         entity: 'defect',
         name: 'Неизвестный статус',
@@ -443,12 +439,14 @@ class _DashboardPageState extends State<DashboardPage> {
 
     final currentUserId = await DatabaseService.getCurrentUserId();
     if (currentUserId == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ошибка: пользователь не авторизован')),
       );
       return;
     }
 
+    if (!mounted) return;
     await showDialog(
       context: context,
       builder: (context) => MarkFixedDialog(

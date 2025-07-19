@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/project.dart' as Legacy;
+import '../models/project.dart' as legacy;
 import '../models/unit.dart';
 import '../models/defect.dart';
 import '../models/defect_attachment.dart';
@@ -9,32 +9,46 @@ class DatabaseService {
   static final _supabase = Supabase.instance.client;
 
   // Получить все проекты пользователя
-  static Future<List<Legacy.Project>> getProjects() async {
+  static Future<List<legacy.Project>> getProjects() async {
     try {
-      print('Attempting to fetch projects from Supabase...');
+      // Log: Attempting to fetch projects from Supabase...
       final response = await _supabase.from('projects').select('*').order('name').timeout(const Duration(seconds: 10));
 
-      print('Successfully fetched ${(response as List).length} projects');
-      final projects = (response as List).map((project) => Legacy.Project.fromJson(project)).toList();
+      // Log: Successfully fetched ${(response as List).length} projects
+      final projects = (response as List).map((project) => legacy.Project.fromJson(project)).toList();
 
       // Сортируем проекты по имени
       projects.sort((a, b) => a.name.compareTo(b.name));
 
       return projects;
     } catch (e) {
-      print('Error fetching projects: $e');
+      // Log: Error fetching projects: $e
       // Return some mock data for testing when connection fails
       return [
-        Legacy.Project(id: 1, name: 'Тестовый проект', buildings: ['1', '2', '3']),
+        legacy.Project(id: 1, name: 'Тестовый проект', buildings: ['1', '2', '3']),
       ];
+    }
+  }
+
+  // Получить проекты конкретного пользователя (для drawer)
+  static Future<List<legacy.Project>> getUserProjects() async {
+    try {
+      final userId = await getCurrentUserId();
+      if (userId == null) return [];
+
+      // TODO: Реализовать фильтрацию по пользователю через связанную таблицу
+      // Пока возвращаем все проекты
+      return await getProjects();
+    } catch (e) {
+      // Log: Error fetching user projects: $e
+      return [];
     }
   }
 
   // Получить все корпуса для проекта
   static Future<List<String>> getBuildingsForProject(int projectId) async {
     try {
-      print('Fetching buildings for project $projectId...');
-
+      // Log: Fetching buildings for project $projectId...
       final buildingsSet = <String>{};
       int offset = 0;
       const limit = 1000;
@@ -49,8 +63,7 @@ class DatabaseService {
             .range(offset, offset + limit - 1);
 
         final List<dynamic> records = response as List;
-        print('Fetched ${records.length} unit records (offset: $offset)');
-
+        // Log: 'Fetched ${records.length} unit records (offset: $offset)
         if (records.isEmpty || records.length < limit) {
           hasMore = false;
         }
@@ -67,7 +80,7 @@ class DatabaseService {
 
         // Защита от бесконечного цикла
         if (offset > 10000) {
-          print('Reached maximum offset limit for safety');
+          // Log: Reached maximum offset limit for safety
           break;
         }
       }
@@ -116,10 +129,10 @@ class DatabaseService {
         return a.compareTo(b);
       });
 
-      print('Unique buildings found for project $projectId: $buildings (total: ${buildings.length})');
+      // Log: 'Unique buildings found for project $projectId: $buildings (total: ${buildings.length})     
       return buildings;
     } catch (e) {
-      print('Error fetching buildings: $e');
+      // Log: Error fetching buildings: $e     
       return [];
     }
   }
@@ -133,7 +146,6 @@ class DatabaseService {
           .eq('project_id', projectId)
           .eq('building', building)
           .order('name');
-
       return (response as List)
           .map(
             (unit) => Unit.fromJson({
@@ -143,7 +155,7 @@ class DatabaseService {
           )
           .toList();
     } catch (e) {
-      print('Error fetching units: $e');
+      // Log: Error fetching units: $e     
       return [];
     }
   }
@@ -159,7 +171,7 @@ class DatabaseService {
 
       return (response as List).map((defect) => Defect.fromJson(defect)).toList();
     } catch (e) {
-      print('Error fetching defects: $e');
+      // Log: Error fetching defects: $e     
       return [];
     }
   }
@@ -175,37 +187,35 @@ class DatabaseService {
 
       return (response as List).map((defect) => Defect.fromJson(defect)).toList();
     } catch (e) {
-      print('Error fetching project defects: $e');
+      // Log: Error fetching project defects: $e     
       return [];
     }
   }
 
   // Получить типы дефектов
-  static Future<List<Legacy.DefectType>> getDefectTypes() async {
+  static Future<List<legacy.DefectType>> getDefectTypes() async {
     try {
       final response = await _supabase.from('defect_types').select('*').order('name');
-
-      return (response as List).map((type) => Legacy.DefectType(id: type['id'], name: type['name'])).toList();
+      return (response as List).map((type) => legacy.DefectType(id: type['id'], name: type['name'])).toList();
     } catch (e) {
-      print('Error fetching defect types: $e');
+      // Log: Error fetching defect types: $e     
       return [
-        Legacy.DefectType(id: 1, name: 'Сантехника'),
-        Legacy.DefectType(id: 2, name: 'Электрика'),
-        Legacy.DefectType(id: 3, name: 'Отделка'),
-        Legacy.DefectType(id: 4, name: 'Окна/Двери'),
-        Legacy.DefectType(id: 5, name: 'Общие зоны'),
+        legacy.DefectType(id: 1, name: 'Сантехника'),
+        legacy.DefectType(id: 2, name: 'Электрика'),
+        legacy.DefectType(id: 3, name: 'Отделка'),
+        legacy.DefectType(id: 4, name: 'Окна/Двери'),
+        legacy.DefectType(id: 5, name: 'Общие зоны'),
       ];
     }
   }
 
   // Получить статусы дефектов
-  static Future<List<Legacy.DefectStatus>> getDefectStatuses() async {
+  static Future<List<legacy.DefectStatus>> getDefectStatuses() async {
     try {
       final response = await _supabase.from('statuses').select('*').eq('entity', 'defect').order('id');
-
       final statuses = (response as List)
           .map(
-            (status) => Legacy.DefectStatus(
+            (status) => legacy.DefectStatus(
               id: status['id'],
               entity: status['entity'],
               name: status['name'],
@@ -215,20 +225,20 @@ class DatabaseService {
           .toList();
 
       // Удаляем дублирующиеся статусы по ID
-      final uniqueStatuses = <int, Legacy.DefectStatus>{};
+      final uniqueStatuses = <int, legacy.DefectStatus>{};
       for (final status in statuses) {
         uniqueStatuses[status.id] = status;
       }
 
       return uniqueStatuses.values.toList();
     } catch (e) {
-      print('Error fetching defect statuses: $e');
+      // Log: Error fetching defect statuses: $e     
       return [
-        Legacy.DefectStatus(id: 1, entity: 'defect', name: 'Получен', color: '#ef4444'),
-        Legacy.DefectStatus(id: 2, entity: 'defect', name: 'В работе', color: '#f59e0b'),
-        Legacy.DefectStatus(id: 3, entity: 'defect', name: 'Устранен', color: '#10b981'),
-        Legacy.DefectStatus(id: 4, entity: 'defect', name: 'Отклонен', color: '#6b7280'),
-        Legacy.DefectStatus(id: 9, entity: 'defect', name: 'НА ПРОВЕРКУ', color: '#3b82f6'),
+        legacy.DefectStatus(id: 1, entity: 'defect', name: 'Получен', color: '#ef4444'),
+        legacy.DefectStatus(id: 2, entity: 'defect', name: 'В работе', color: '#f59e0b'),
+        legacy.DefectStatus(id: 3, entity: 'defect', name: 'Устранен', color: '#10b981'),
+        legacy.DefectStatus(id: 4, entity: 'defect', name: 'Отклонен', color: '#6b7280'),
+        legacy.DefectStatus(id: 9, entity: 'defect', name: 'НА ПРОВЕРКУ', color: '#3b82f6'),
       ];
     }
   }
@@ -260,7 +270,7 @@ class DatabaseService {
 
       return Defect.fromJson(response);
     } catch (e) {
-      print('Error adding defect: $e');
+      // Log: Error adding defect: $e     
       return null;
     }
   }
@@ -307,7 +317,7 @@ class DatabaseService {
         'floors': unitsByFloor.keys.toList()..sort((a, b) => b.compareTo(a)), // По убыванию
       };
     } catch (e) {
-      print('Error fetching units with defects: $e');
+      // Log: Error fetching units with defects: $e     
       return {'units': <Unit>[], 'unitsByFloor': <int, List<Unit>>{}, 'floors': <int>[]};
     }
   }
@@ -359,7 +369,7 @@ class DatabaseService {
         'created_at': attachmentResponse['created_at'],
       });
     } catch (e) {
-      print('Error uploading file: $e');
+      // Log: Error uploading file: $e     
       return null;
     }
   }
@@ -407,8 +417,8 @@ class DatabaseService {
 
       return (response as List).map((item) {
         final attachment = item['attachments'];
-        print('Attachment data: $attachment');
-        return DefectAttachment.fromJson({
+        // Log: 'Attachment data: $attachment       
+      return DefectAttachment.fromJson({
           'id': attachment['id'],
           'defect_id': defectId,
           'name': attachment['original_name'] ?? 'file',
@@ -419,7 +429,7 @@ class DatabaseService {
         });
       }).toList();
     } catch (e) {
-      print('Error fetching defect attachments: $e');
+      // Log: Error fetching defect attachments: $e     
       return [];
     }
   }
@@ -428,10 +438,9 @@ class DatabaseService {
   static Future<List<Map<String, dynamic>>> getBrigades() async {
     try {
       final response = await _supabase.from('brigades').select('id, name').order('name');
-
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('Error fetching brigades: $e');
+      // Log: Error fetching brigades: $e
       return [];
     }
   }
@@ -440,10 +449,9 @@ class DatabaseService {
   static Future<List<Map<String, dynamic>>> getContractors() async {
     try {
       final response = await _supabase.from('contractors').select('id, name').order('name');
-
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('Error fetching contractors: $e');
+      // Log: Error fetching contractors: $e
       return [];
     }
   }
@@ -452,10 +460,9 @@ class DatabaseService {
   static Future<List<Map<String, dynamic>>> getEngineers() async {
     try {
       final response = await _supabase.from('profiles').select('id, name').eq('role', 'ENGINEER').order('name');
-
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('Error fetching engineers: $e');
+      // Log: Error fetching engineers: $e
       return [];
     }
   }
@@ -470,7 +477,7 @@ class DatabaseService {
       }
       return null;
     } catch (e) {
-      print('Error getting current user ID: $e');
+      // Log: Error getting current user ID: $e     
       return null;
     }
   }
@@ -495,7 +502,7 @@ class DatabaseService {
 
       return true;
     } catch (e) {
-      print('Error deleting attachment: $e');
+      // Log: Error deleting attachment: $e     
       return false;
     }
   }
@@ -530,7 +537,7 @@ class DatabaseService {
 
       return Defect.fromJson(response);
     } catch (e) {
-      print('Error marking defect as fixed: $e');
+      // Log: Error marking defect as fixed: $e     
       return null;
     }
   }
@@ -551,7 +558,7 @@ class DatabaseService {
 
       return Defect.fromJson(response);
     } catch (e) {
-      print('Error updating defect status: $e');
+      // Log: Error updating defect status: $e     
       return null;
     }
   }
@@ -561,7 +568,7 @@ class DatabaseService {
     try {
       return _supabase.storage.from('attachments').getPublicUrl(filePath);
     } catch (e) {
-      print('Error getting attachment URL: $e');
+      // Log: Error getting attachment URL: $e     
       return null;
     }
   }
@@ -571,7 +578,7 @@ class DatabaseService {
     try {
       await _supabase.auth.signOut();
     } catch (e) {
-      print('Error during logout: $e');
+      // Log: Error during logout: $e
       throw Exception('Ошибка при выходе из аккаунта');
     }
   }
@@ -589,7 +596,7 @@ class DatabaseService {
       }
       return {};
     } catch (e) {
-      print('Error getting user info: $e');
+      // Log: Error getting user info: $e     
       return {};
     }
   }
@@ -631,7 +638,7 @@ class DatabaseService {
         'closedDefects': closedDefectsResponse.count,
       };
     } catch (e) {
-      print('Error getting user statistics: $e');
+      // Log: Error getting user statistics: $e     
       return {
         'totalProjects': 0,
         'totalDefects': 0,

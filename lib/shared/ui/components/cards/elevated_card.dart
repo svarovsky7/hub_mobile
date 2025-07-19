@@ -32,7 +32,7 @@ class ElevatedCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.1),
+            color: theme.shadowColor.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: elevation * 2,
             offset: Offset(0, elevation),

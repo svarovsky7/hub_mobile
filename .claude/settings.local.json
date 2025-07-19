@@ -12,7 +12,14 @@
       "Bash(grep:*)",
       "Bash(/usr/bin/flutter pub get)",
       "Bash(/mnt/c/flutter/bin/flutter pub get)",
-      "Bash(dart analyze:*)"
+      "Bash(dart analyze:*)",
+      "Bash(/mnt/c/flutter/bin/flutter run)",
+      "Bash(/mnt/c/flutter/bin/flutter:*)",
+      "Bash(echo $SHELL)",
+      "Bash(bash:*)",
+      "Bash(sed:*)",
+      "Bash(perl:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }

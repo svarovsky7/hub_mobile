@@ -22,7 +22,7 @@ class LoadingOverlay extends StatelessWidget {
         if (isLoading)
           Positioned.fill(
             child: Container(
-              color: (color ?? Colors.black).withOpacity(opacity),
+              color: (color ?? Colors.black).withValues(alpha: opacity),
               child: const Center(
                 child: CircularProgressIndicator(),
               ),
@@ -94,7 +94,7 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
               end: Alignment.centerRight,
               colors: [
                 theme.colorScheme.surface,
-                theme.colorScheme.surfaceVariant,
+                theme.colorScheme.surfaceContainerHighest,
                 theme.colorScheme.surface,
               ],
               stops: [

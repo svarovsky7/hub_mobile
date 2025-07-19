@@ -66,7 +66,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         }
       }
     } catch (e) {
-      print('Error loading initial data: $e');
+      // Log error: Error loading initial data: $e
     } finally {
       setState(() => isLoading = false);
     }
@@ -86,7 +86,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         units = result['units'] as List<Unit>;
       });
     } catch (e) {
-      print('Error loading units: $e');
+      // Log error: Error loading units: $e
     }
   }
 
@@ -95,7 +95,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
     final theme = Theme.of(context);
     switch (status) {
       case UnitStatus.noDefects:
-        return theme.colorScheme.surfaceVariant;
+        return theme.colorScheme.surfaceContainerHighest;
       case UnitStatus.hasNew:
         return const Color(0xFFEF4444); // Красный - Получен
       case UnitStatus.inProgress:
@@ -196,7 +196,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         units.clear();
       }
     } catch (e) {
-      print('Error changing project: $e');
+      // Log error: Error changing project: $e
     } finally {
       setState(() => isLoading = false);
     }
@@ -212,7 +212,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
       selectedBuilding = building;
       await loadUnitsForCurrentSelection();
     } catch (e) {
-      print('Error changing building: $e');
+      // Log error: Error changing building: $e
     } finally {
       setState(() => isLoading = false);
     }
@@ -259,31 +259,37 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
           currentView = 'apartment';
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Дефект успешно добавлен')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Дефект успешно добавлен')),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Ошибка при добавлении дефекта'),
             backgroundColor: Colors.red,
           ),
         );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   // Обновить статус дефекта
   Future<void> updateDefectStatus(int defectId, int newStatusId) async {
     try {
-      final updatedDefect = await DatabaseService.updateDefectStatus(defectId, newStatusId);
+      final updatedDefect = await DatabaseService.updateDefectStatus(defectId: defectId, statusId: newStatusId);
       
       if (updatedDefect != null) {
         setState(() {
@@ -301,12 +307,14 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка при обновлении статуса: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при обновлении статуса: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -374,9 +382,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         // Заголовок
         Container(
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-            ),
+            color: Color(0xFF2563EB),
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(24),
               bottomRight: Radius.circular(24),
@@ -396,7 +402,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: DropdownButton<int>(
@@ -442,7 +448,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: DropdownButton<String>(
@@ -512,7 +518,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -541,7 +547,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -592,7 +598,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildStatusLegend('Без дефектов', Theme.of(context).colorScheme.surfaceVariant, Theme.of(context).colorScheme.outline),
+                    _buildStatusLegend('Без дефектов', Theme.of(context).colorScheme.surfaceContainerHighest, Theme.of(context).colorScheme.outline),
                     _buildStatusLegend('Получен', const Color(0xFFEF4444), const Color(0xFFDC2626)),
                     _buildStatusLegend('В работе', const Color(0xFFF59E0B), const Color(0xFFD97706)),
                     _buildStatusLegend('На проверку', const Color(0xFF3B82F6), const Color(0xFF2563EB)),
@@ -620,7 +626,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         spreadRadius: 1,
                         blurRadius: 4,
                         offset: const Offset(0, 2),
@@ -665,9 +671,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         // Заголовок
         Container(
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-            ),
+            color: Color(0xFF2563EB),
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(24),
               bottomRight: Radius.circular(24),
@@ -723,7 +727,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -752,7 +756,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -781,7 +785,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -832,7 +836,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               spreadRadius: 1,
               blurRadius: 4,
               offset: const Offset(0, 2),
@@ -898,7 +902,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha: 0.1),
                 spreadRadius: 1,
                 blurRadius: 4,
                 offset: const Offset(0, 2),
@@ -1224,9 +1228,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
         // Заголовок
         Container(
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF059669), Color(0xFF047857)],
-            ),
+            color: Color(0xFF059669),
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(24),
               bottomRight: Radius.circular(24),
@@ -1279,7 +1281,7 @@ class _DefectTrackerScreenState extends State<DefectTrackerScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     spreadRadius: 1,
                     blurRadius: 4,
                     offset: const Offset(0, 2),

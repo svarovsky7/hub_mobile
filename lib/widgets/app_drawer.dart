@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import '../entities/project/bloc/project_bloc.dart';
 import '../entities/project/bloc/project_state.dart';
 import '../entities/project/bloc/project_event.dart';
 import '../entities/project/model/project.dart';
+import '../models/project.dart' as legacy;
 import '../services/database_service.dart';
+import '../providers/theme_provider.dart';
 import '../main.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -38,6 +41,11 @@ class AppDrawer extends StatelessWidget {
                   _buildStatisticsSection(context, theme),
                   
                   const SizedBox(height: 16),
+                  
+                  // Настройки
+                  _buildSettingsSection(context, theme),
+                  
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -57,14 +65,7 @@ class AppDrawer extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return DrawerHeader(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  theme.colorScheme.primary,
-                  theme.colorScheme.primary.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: theme.colorScheme.primary,
             ),
             child: const Center(
               child: CircularProgressIndicator(color: Colors.white),
@@ -78,14 +79,7 @@ class AppDrawer extends StatelessWidget {
         
         return DrawerHeader(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primary,
-                theme.colorScheme.primary.withOpacity(0.8),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: theme.colorScheme.primary,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +88,7 @@ class AppDrawer extends StatelessWidget {
               // Аватар
               CircleAvatar(
                 radius: 30,
-                backgroundColor: Colors.white.withOpacity(0.2),
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
                 child: Text(
                   userName.isNotEmpty ? userName[0].toUpperCase() : 'П',
                   style: const TextStyle(
@@ -122,7 +116,7 @@ class AppDrawer extends StatelessWidget {
                 Text(
                   userEmail,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 14,
                   ),
                 ),
@@ -134,68 +128,96 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildProjectsSection(BuildContext context, ThemeData theme) {
-    return BlocBuilder<ProjectBloc, ProjectState>(
-      builder: (context, state) {
-        if (state is ProjectStateLoaded) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Мои проекты',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: state.projects.length,
-                itemBuilder: (context, index) {
-                  final project = state.projects[index];
-                  final isSelected = state.selectedProject?.id == project.id;
-                  
-                  return ListTile(
-                    leading: Icon(
-                      Icons.business,
-                      color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    title: Text(
-                      project.name,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${project.buildings.length} корпусов',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                    trailing: isSelected 
-                        ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
-                        : null,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      context.read<ProjectBloc>().add(ProjectEventSelectProject(project));
-                      // Автоматически выбираем первый корпус
-                      if (project.buildings.isNotEmpty) {
-                        context.read<ProjectBloc>().add(ProjectEventSelectBuilding(project.buildings.first));
-                      }
-                    },
-                  );
-                },
-              ),
-            ],
+    return FutureBuilder<List<legacy.Project>>(
+      future: _getUserProjects(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
           );
         }
         
-        return const SizedBox.shrink();
+        final userProjects = snapshot.data ?? [];
+        if (userProjects.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        
+        return BlocBuilder<ProjectBloc, ProjectState>(
+          builder: (context, state) {
+            final selectedProject = state is ProjectStateLoaded ? state.selectedProject : null;
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Мои проекты',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: userProjects.length,
+                  itemBuilder: (context, index) {
+                    final project = userProjects[index];
+                    final isSelected = selectedProject?.id == project.id;
+                    
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.1) : null,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.business,
+                          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(
+                          project.name,
+                          style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${project.buildings.length} корпусов',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: isSelected 
+                            ? Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
+                            : null,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          // Конвертируем legacy.Project в entities.Project для ProjectBloc
+                          final entitiesProject = Project(
+                            id: project.id,
+                            name: project.name,
+                            buildings: project.buildings,
+                          );
+                          context.read<ProjectBloc>().add(ProjectEventSelectProject(entitiesProject));
+                          // Автоматически выбираем первый корпус
+                          if (project.buildings.isNotEmpty) {
+                            context.read<ProjectBloc>().add(ProjectEventSelectBuilding(project.buildings.first));
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -293,12 +315,57 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
+  Widget _buildSettingsSection(BuildContext context, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Настройки',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        
+        // Переключатель темы
+        Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Темная тема',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  Switch(
+                    value: themeProvider.isDarkMode,
+                    onChanged: (value) => themeProvider.toggleTheme(),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildLogoutButton(BuildContext context, ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+          top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
         ),
       ),
       child: SizedBox(
@@ -324,7 +391,7 @@ class AppDrawer extends StatelessWidget {
     try {
       return await DatabaseService.getUserInfo();
     } catch (e) {
-      print('Error getting user info: $e');
+      // Log error: Error getting user info: $e
       return {};
     }
   }
@@ -333,8 +400,17 @@ class AppDrawer extends StatelessWidget {
     try {
       return await DatabaseService.getUserStatistics();
     } catch (e) {
-      print('Error getting user statistics: $e');
+      // Log error: Error getting user statistics: $e
       return {};
+    }
+  }
+
+  Future<List<legacy.Project>> _getUserProjects() async {
+    try {
+      return await DatabaseService.getUserProjects();
+    } catch (e) {
+      // Log error: Error getting user projects: $e
+      return [];
     }
   }
 

@@ -25,7 +25,7 @@ class _DebugScreenState extends State<DebugScreen> {
     buffer.writeln('=== Supabase Configuration ===');
     buffer.writeln('URL: ${dotenv.env['SUPABASE_URL']}');
     buffer.writeln('Has Anon Key: ${dotenv.env['SUPABASE_ANON_KEY']?.isNotEmpty ?? false}');
-    buffer.writeln('Client initialized: ${Supabase.instance.client != null}');
+    buffer.writeln('Client initialized: true');
     
     // Test database connection
     buffer.writeln('\n=== Database Connection Test ===');

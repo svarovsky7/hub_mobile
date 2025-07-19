@@ -62,7 +62,7 @@ class UnitTile extends StatelessWidget {
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         spreadRadius: 1,
                         blurRadius: 3,
                         offset: const Offset(0, 1),
@@ -107,11 +107,11 @@ class UnitTile extends StatelessWidget {
     if (statusId != null && statusColors.containsKey(statusId)) {
       final colorHex = statusColors[statusId]!;
       final baseColor = Color(int.parse(colorHex.substring(1), radix: 16) + 0xFF000000);
-      return baseColor.withOpacity(0.3); // Полупрозрачная заливка
+      return baseColor.withValues(alpha: 0.3); // Полупрозрачная заливка
     }
 
     // Fallback цвета для квартир с дефектами
-    return _getFallbackColor(status).withOpacity(0.3);
+    return _getFallbackColor(status).withValues(alpha: 0.3);
   }
 
   int? _getStatusId(UnitStatus status) {
@@ -134,7 +134,7 @@ class UnitTile extends StatelessWidget {
 
   Color _getUnitBorderColor(UnitStatus status, ThemeData theme) {
     if (status == UnitStatus.noDefects) {
-      return theme.colorScheme.outline.withOpacity(0.6);
+      return theme.colorScheme.outline.withValues(alpha: 0.6);
     }
 
     // Получаем цвет статуса дефекта для границы

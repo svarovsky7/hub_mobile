@@ -27,7 +27,6 @@ class _MarkFixedDialogState extends State<MarkFixedDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final executors = _isOwnExecutor ? widget.brigades : widget.contractors;
     
     return AlertDialog(

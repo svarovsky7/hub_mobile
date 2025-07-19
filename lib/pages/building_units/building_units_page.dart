@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../entities/project/model/project.dart';
 import '../../models/unit.dart';
-import '../../models/project.dart' as Legacy;
+import '../../models/project.dart' as legacy;
 import '../../shared/ui/components/feedback/loading_overlay.dart';
 import '../../shared/ui/components/feedback/empty_state.dart';
 import '../../widgets/unit_grid/unit_tile.dart';
-import '../../providers/theme_provider.dart';
-import '../../services/database_service.dart';
-import '../../main.dart';
 
 class BuildingUnitsPage extends StatefulWidget {
   const BuildingUnitsPage({
@@ -48,7 +44,7 @@ class BuildingUnitsPage extends StatefulWidget {
   final Function(int?) onDefectTypeChanged;
   final VoidCallback onResetFilters;
   final int? selectedDefectType;
-  final List<Legacy.DefectStatus> defectStatuses;
+  final List<legacy.DefectStatus> defectStatuses;
 
   @override
   State<BuildingUnitsPage> createState() => _BuildingUnitsPageState();
@@ -106,14 +102,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
     
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withBlue(
-              (theme.colorScheme.primary.blue * 0.8).round(),
-            ),
-          ],
-        ),
+        color: theme.colorScheme.primary,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
@@ -135,6 +124,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
               const SizedBox(width: 8),
               
               Expanded(
+                flex: 2,
                 child: GestureDetector(
                   onTap: () => _showProjectSelector(context, theme),
                   child: Column(
@@ -142,12 +132,15 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            widget.selectedProject?.name ?? 'Выберите проект',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                          Flexible(
+                            child: Text(
+                              widget.selectedProject?.name ?? 'Выберите проект',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const Icon(
@@ -166,21 +159,24 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                               Text(
                                 'Корпус: ',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withValues(alpha: 0.6),
                                   fontSize: 14,
                                 ),
                               ),
-                              Text(
-                                widget.selectedBuilding!,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 14,
+                              Flexible(
+                                child: Text(
+                                  widget.selectedBuilding!,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 4),
                               Icon(
                                 Icons.arrow_drop_down,
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 size: 20,
                               ),
                             ],
@@ -198,7 +194,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                     Container(
                       margin: const EdgeInsets.only(right: 8),
                       child: Material(
-                        color: Colors.red.withOpacity(0.9),
+                        color: Colors.red.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(8),
                         child: InkWell(
                           onTap: widget.onResetFilters,
@@ -227,8 +223,8 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                   // Show only defects filter button
                   Material(
                     color: widget.showOnlyDefects 
-                        ? Colors.orange.withOpacity(0.9)
-                        : Colors.white.withOpacity(0.2),
+                        ? Colors.orange.withValues(alpha: 0.9)
+                        : Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                     child: InkWell(
                       onTap: widget.onToggleShowOnlyDefects,
@@ -256,28 +252,6 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Theme toggle button
-                  Consumer<ThemeProvider>(
-                    builder: (context, themeProvider, child) {
-                      return Material(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        child: InkWell(
-                          onTap: () => themeProvider.toggleTheme(),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            child: Icon(
-                              themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
                   ),
                 ],
               ),
@@ -330,7 +304,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.05),
+            color: Colors.black.withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -388,7 +362,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.primary.withOpacity(0.1),
+                            : theme.colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected
@@ -446,7 +420,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.05),
+            color: Colors.black.withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -495,7 +469,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                   if (statusId == 0) {
                     // Статус "Без дефектов" - прозрачный фон
                     bgColor = Colors.transparent;
-                    borderColor = theme.colorScheme.outline.withOpacity(0.6);
+                    borderColor = theme.colorScheme.outline.withValues(alpha: 0.6);
                   } else {
                     // Статусы дефектов - цветная заливка
                     final colorHex = widget.statusColors[statusId];
@@ -504,7 +478,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
                       bgColor = color;
                       borderColor = color;
                     } else {
-                      bgColor = theme.colorScheme.surfaceVariant;
+                      bgColor = theme.colorScheme.surfaceContainerHighest;
                       borderColor = theme.colorScheme.outline;
                     }
                   }
@@ -550,7 +524,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
           width: 16,
           height: 16,
           decoration: BoxDecoration(
-            color: bgColor == Colors.transparent ? Colors.transparent : bgColor.withOpacity(0.3),
+            color: bgColor == Colors.transparent ? Colors.transparent : bgColor.withValues(alpha: 0.3),
             border: Border.all(color: borderColor, width: 2),
             borderRadius: BorderRadius.circular(4),
           ),
@@ -574,7 +548,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -590,7 +564,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 9,
             ),
           ),
@@ -636,7 +610,7 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.05),
+                color: Colors.black.withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),

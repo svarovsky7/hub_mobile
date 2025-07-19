@@ -31,23 +31,23 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('Attempting to sign in with email: ${_emailController.text.trim()}');
+      // Log: Attempting to sign in with email: ${_emailController.text.trim()}
       
       final response = await Supabase.instance.client.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      print('Sign in response: ${response.user?.id}');
+      // Log: Sign in response: ${response.user?.id}
       
       if (response.user != null && mounted) {
-        print('User authenticated successfully, navigating to App');
+        // Log: User authenticated successfully, navigating to App
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const App()),
         );
       }
     } on AuthException catch (e) {
-      print('AuthException during sign in: ${e.message}');
+      // Log error: AuthException during sign in: ${e.message}
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      print('Unexpected error during sign in: $e');
+      // Log error: Unexpected error during sign in: $e
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

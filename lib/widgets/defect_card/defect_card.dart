@@ -125,27 +125,35 @@ class DefectCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: onAttachFiles,
-                      icon: const Icon(Icons.attach_file, size: 18),
-                      label: const Text('Прикрепить файлы'),
+                      icon: const Icon(Icons.attach_file, size: 16),
+                      label: const Text(
+                        'Файлы',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        minimumSize: const Size(0, 32),
                       ),
                     ),
                   ),
                 
                 if (onAttachFiles != null && onMarkFixed != null)
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                 
                 if (onMarkFixed != null)
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: onMarkFixed,
-                      icon: const Icon(Icons.check_circle_outline, size: 18),
-                      label: const Text('Отправить на проверку'),
+                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                      label: const Text(
+                        'На проверку',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.tertiary,
                         foregroundColor: theme.colorScheme.onTertiary,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        minimumSize: const Size(0, 32),
                       ),
                     ),
                   ),
