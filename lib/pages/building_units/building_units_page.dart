@@ -76,19 +76,26 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
           
           // Content
           Expanded(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              clipBehavior: Clip.hardEdge,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCollapsibleDefectTypes(theme),
-                  const SizedBox(height: 16),
-                  _buildCollapsibleUnitStatuses(theme),
-                  const SizedBox(height: 24),
-                  _buildUnitsGrid(theme),
-                ],
+            child: RefreshIndicator(
+              onRefresh: () async {
+                widget.onRefresh();
+                // Добавляем небольшую задержку для лучшего UX
+                await Future.delayed(const Duration(milliseconds: 500));
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                clipBehavior: Clip.hardEdge,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildCollapsibleDefectTypes(theme),
+                    const SizedBox(height: 16),
+                    _buildCollapsibleUnitStatuses(theme),
+                    const SizedBox(height: 24),
+                    _buildUnitsGrid(theme),
+                  ],
+                ),
               ),
             ),
           ),

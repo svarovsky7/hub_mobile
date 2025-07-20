@@ -308,7 +308,22 @@ class FileAttachmentService {
           );
           
           // Получаем все текущие вложения (и серверные из кеша, и локальные)
-          final currentAttachments = await FileAttachmentService.getDefectAttachments(attachment.defectId);
+          final serverAttachments = await DatabaseService.getDefectAttachments(attachment.defectId);
+          final localAttachments = await getLocalAttachments(attachment.defectId);
+          
+          final currentAttachments = <DefectAttachment>[];
+          currentAttachments.addAll(serverAttachments);
+          
+          // Добавляем локальные файлы, которых нет на сервере
+          for (final local in localAttachments) {
+            final exists = serverAttachments.any((server) => 
+              server.fileName == local.fileName && 
+              server.defectId == local.defectId
+            );
+            if (!exists) {
+              currentAttachments.add(local);
+            }
+          }
           
           // Фильтруем удаленное вложение
           final remainingAttachments = currentAttachments

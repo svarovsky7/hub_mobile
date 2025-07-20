@@ -19,6 +19,7 @@ class DefectDetailsPage extends StatefulWidget {
     required this.onAddDefect,
     this.onStatusTap,
     this.onMarkFixed,
+    this.onRefresh,
   });
 
   final Unit unit;
@@ -30,6 +31,7 @@ class DefectDetailsPage extends StatefulWidget {
   final VoidCallback onAddDefect;
   final Function(Defect)? onStatusTap;
   final Function(Defect)? onMarkFixed;
+  final Future<void> Function()? onRefresh;
 
   @override
   State<DefectDetailsPage> createState() => _DefectDetailsPageState();
@@ -73,11 +75,14 @@ class _DefectDetailsPageState extends State<DefectDetailsPage> {
         
         // Content
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: _defects.isEmpty
-                ? _buildEmptyState()
-                : _buildDefectsList(),
+          child: RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _defects.isEmpty
+                  ? _buildEmptyState()
+                  : _buildDefectsList(),
+            ),
           ),
         ),
       ],
@@ -171,12 +176,18 @@ class _DefectDetailsPageState extends State<DefectDetailsPage> {
 
 
   Widget _buildEmptyState() {
-    return EmptyState(
-      title: 'Дефектов нет',
-      subtitle: 'В этой квартире пока не зарегистрированы дефекты',
-      emoji: '🏠',
-      actionText: 'Добавить дефект',
-      onAction: widget.onAddDefect,
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: EmptyState(
+          title: 'Дефектов нет',
+          subtitle: 'В этой квартире пока не зарегистрированы дефекты',
+          emoji: '🏠',
+          actionText: 'Добавить дефект',
+          onAction: widget.onAddDefect,
+        ),
+      ),
     );
   }
 
@@ -248,5 +259,11 @@ class _DefectDetailsPageState extends State<DefectDetailsPage> {
         );
       },
     );
+  }
+
+  Future<void> _onRefresh() async {
+    if (widget.onRefresh != null) {
+      await widget.onRefresh!();
+    }
   }
 }

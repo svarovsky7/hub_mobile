@@ -263,18 +263,84 @@ class OfflineService {
     }
     
     _lastConnectivityChange = now;
-    print('Internet connection restored');
+    print('Internet connection restored - starting full sync');
     
-    // Проверяем незавершенные операции синхронизации
-    await _resumeIncompleteSync();
-    
-    await _checkPendingSync();
-    
-    if (hasPendingSync) {
-      // Ждем немного и показываем уведомление о синхронизации
-      await Future.delayed(const Duration(milliseconds: 500));
-      // Здесь можно добавить глобальное уведомление через EventBus или Provider
+    try {
+      // Проверяем незавершенные операции синхронизации
+      await _resumeIncompleteSync();
+      
+      await _checkPendingSync();
+      
+      // Запускаем полную синхронизацию дефектов и файлов
+      await _syncAllDefectsAndAttachments();
+      
+      if (hasPendingSync) {
+        // Ждем немного и показываем уведомление о синхронизации
+        await Future.delayed(const Duration(milliseconds: 500));
+        // Здесь можно добавить глобальное уведомление через EventBus или Provider
+      }
+      
+      print('Full sync completed after connectivity restoration');
+    } catch (e) {
+      print('Error during connectivity restoration sync: $e');
     }
+  }
+
+  // Полная синхронизация всех дефектов и вложений
+  static Future<void> _syncAllDefectsAndAttachments() async {
+    if (!_isOnline || _database == null) return;
+    
+    try {
+      print('Starting full defects and attachments sync...');
+      
+      // Получаем все кешированные дефекты
+      final cachedDefects = await _database!.query('defects');
+      
+      for (final defectMap in cachedDefects) {
+        final defectId = defectMap['id'] as int;
+        
+        try {
+          // Синхронизируем дефект с сервером
+          final serverDefect = await DatabaseService.getDefectById(defectId);
+          if (serverDefect != null) {
+            await _updateCachedDefectFromServer(serverDefect);
+          }
+          
+          // Синхронизируем вложения дефекта
+          final serverAttachments = await DatabaseService.getDefectAttachments(defectId);
+          await clearCachedAttachments(defectId);
+          await cacheDefectAttachments(serverAttachments);
+          
+        } catch (e) {
+          print('Error syncing defect $defectId: $e');
+          // Продолжаем с следующим дефектом
+        }
+      }
+      
+      print('Full defects and attachments sync completed');
+    } catch (e) {
+      print('Error in _syncAllDefectsAndAttachments: $e');
+    }
+  }
+
+  // Обновление кешированного дефекта данными с сервера
+  static Future<void> _updateCachedDefectFromServer(Defect defect) async {
+    if (_database == null) return;
+    
+    await _database!.update(
+      'defects',
+      {
+        'description': defect.description,
+        'is_warranty': defect.isWarranty ? 1 : 0,
+        'status_id': defect.statusId,
+        'type_id': defect.typeId,
+        'received_at': defect.receivedAt,
+        'fixed_by': defect.fixedBy,
+        'last_sync': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [defect.id],
+    );
   }
 
   // Возобновление незавершенной синхронизации
@@ -585,6 +651,38 @@ class OfflineService {
       where: 'id = ?',
       whereArgs: [defectId],
     );
+  }
+
+  // Получение дефекта из кеша
+  static Future<Defect?> getCachedDefect(int defectId) async {
+    if (_database == null) return null;
+
+    try {
+      final maps = await _database!.query(
+        'defects',
+        where: 'id = ?',
+        whereArgs: [defectId],
+        limit: 1,
+      );
+
+      if (maps.isEmpty) return null;
+
+      final map = maps.first;
+      return Defect(
+        id: map['id'] as int,
+        description: map['description'] as String? ?? '',
+        isWarranty: (map['is_warranty'] as int?) == 1,
+        projectId: map['project_id'] as int? ?? 0,
+        unitId: map['unit_id'] as int? ?? 0,
+        statusId: map['status_id'] as int? ?? 0,
+        typeId: map['type_id'] as int? ?? 0,
+        attachments: [],
+        receivedAt: map['received_at'] as String?,
+      );
+    } catch (e) {
+      print('Error getting cached defect: $e');
+      return null;
+    }
   }
 
   // Кэширование бригад

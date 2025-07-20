@@ -360,6 +360,26 @@ class DatabaseService {
     }
   }
 
+  // Получить дефект по ID
+  static Future<Defect?> getDefectById(int defectId) async {
+    try {
+      final response = await _supabase
+          .from('defects')
+          .select('*')
+          .eq('id', defectId)
+          .single();
+      
+      final defect = Defect.fromJson(response);
+      
+      // Загружаем вложения для дефекта
+      final attachments = await getDefectAttachments(defect.id);
+      return defect.copyWith(attachments: attachments);
+    } catch (e) {
+      print('Error fetching defect by id $defectId: $e');
+      return null;
+    }
+  }
+
   // Получить дефекты для юнита
   static Future<List<Defect>> getDefectsForUnit(int unitId) async {
     try {
@@ -1097,20 +1117,28 @@ class DatabaseService {
           {'status_id': statusId},
         );
         
+        // Получаем текущие данные дефекта из кеша
+        final currentDefect = await OfflineService.getCachedDefect(defectId);
+        
         // Обновляем локальный кеш
         await OfflineService.updateCachedDefectStatus(defectId, statusId);
         
-        // Возвращаем обновленный дефект
-        return Defect(
-          id: defectId,
-          statusId: statusId,
-          description: '',
-          isWarranty: false,
-          projectId: 0,
-          unitId: 0,
-          typeId: 0,
-          attachments: [],
-        );
+        // Возвращаем обновленный дефект с сохранением текущих данных
+        if (currentDefect != null) {
+          return currentDefect.copyWith(statusId: statusId);
+        } else {
+          // Fallback если дефект не найден в кеше
+          return Defect(
+            id: defectId,
+            statusId: statusId,
+            description: '',
+            isWarranty: false,
+            projectId: 0,
+            unitId: 0,
+            typeId: 0,
+            attachments: [],
+          );
+        }
       }
       
       // Проверяем доступ к дефекту

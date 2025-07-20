@@ -309,6 +309,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 setState(() => _currentView = DashboardView.addDefect),
             onStatusTap: _onStatusTap,
             onMarkFixed: _onMarkFixed,
+            onRefresh: _refreshCurrentUnit,
           );
         }
         return const Center(child: CircularProgressIndicator());
@@ -397,8 +398,33 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
-  void _onRefresh() {
-    context.read<ProjectBloc>().add(const ProjectEventRefresh());
+  Future<void> _onRefresh() async {
+    try {
+      // Запускаем синхронизацию, если есть интернет
+      if (OfflineService.isOnline) {
+        print('Начинаем синхронизацию данных...');
+        await OfflineService.performSync(
+          onProgress: (progress, operation) {
+            print('Sync progress: ${(progress * 100).toInt()}% - $operation');
+          },
+        );
+        print('Синхронизация завершена');
+      }
+      
+      // Обновляем проекты
+      context.read<ProjectBloc>().add(const ProjectEventRefresh());
+      
+      // Перезагружаем статические данные
+      await _loadStaticData();
+      
+    } catch (e) {
+      print('Ошибка при обновлении данных: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка обновления: $e')),
+        );
+      }
+    }
   }
 
   void _onToggleShowOnlyDefects() {
