@@ -308,7 +308,7 @@ class FileAttachmentService {
           );
           
           // Получаем все текущие вложения (и серверные из кеша, и локальные)
-          final currentAttachments = await getDefectAttachments(attachment.defectId);
+          final currentAttachments = await FileAttachmentService.getDefectAttachments(attachment.defectId);
           
           // Фильтруем удаленное вложение
           final remainingAttachments = currentAttachments
