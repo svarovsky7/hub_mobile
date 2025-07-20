@@ -96,6 +96,12 @@ class DatabaseService {
       }
 
       print('Successfully loaded ${projects.length} user projects');
+      
+      // Кешируем проекты для офлайн использования
+      if (projects.isNotEmpty) {
+        await OfflineService.cacheProjects(projects, userId);
+      }
+      
       return projects;
     } catch (e) {
       print('Error fetching user projects: $e');
@@ -497,10 +503,13 @@ class DatabaseService {
   // Получить юниты с дефектами для шахматки
   static Future<Map<String, dynamic>> getUnitsWithDefectsForBuilding(int projectId, String building) async {
     try {
+      print('getUnitsWithDefectsForBuilding called: projectId=$projectId, building=$building, online=${OfflineService.isOnline}');
+      
       // Если офлайн, загружаем из кеша
       if (!OfflineService.isOnline) {
         print('Offline mode: loading cached units for project $projectId, building $building');
         final cachedUnits = await OfflineService.getCachedUnits(projectId, building);
+        print('Loaded ${cachedUnits.length} cached units');
         
         // Группируем по этажам для удобства отображения
         final unitsByFloor = <int, List<Unit>>{};
@@ -688,10 +697,6 @@ class DatabaseService {
             .single();
         
         projectId = defectResponse['project_id'] as int;
-      }
-      
-      if (projectId == null) {
-        return false;
       }
       
       // Проверяем доступ к проекту
@@ -907,33 +912,60 @@ class DatabaseService {
   // Получить бригады
   static Future<List<Map<String, dynamic>>> getBrigades() async {
     try {
-      final response = await _supabase.from('brigades').select('id, name').order('name');
-      return List<Map<String, dynamic>>.from(response);
+      if (OfflineService.isOnline) {
+        final response = await _supabase.from('brigades').select('id, name').order('name');
+        final brigades = List<Map<String, dynamic>>.from(response);
+        // Кэшируем полученные данные
+        await OfflineService.cacheBrigades(brigades);
+        return brigades;
+      } else {
+        // Возвращаем кэшированные данные
+        return await OfflineService.getCachedBrigades();
+      }
     } catch (e) {
       // Log: Error fetching brigades: $e
-      return [];
+      // Возвращаем кэшированные данные в случае ошибки
+      return await OfflineService.getCachedBrigades();
     }
   }
 
   // Получить подрядчиков
   static Future<List<Map<String, dynamic>>> getContractors() async {
     try {
-      final response = await _supabase.from('contractors').select('id, name').order('name');
-      return List<Map<String, dynamic>>.from(response);
+      if (OfflineService.isOnline) {
+        final response = await _supabase.from('contractors').select('id, name').order('name');
+        final contractors = List<Map<String, dynamic>>.from(response);
+        // Кэшируем полученные данные
+        await OfflineService.cacheContractors(contractors);
+        return contractors;
+      } else {
+        // Возвращаем кэшированные данные
+        return await OfflineService.getCachedContractors();
+      }
     } catch (e) {
       // Log: Error fetching contractors: $e
-      return [];
+      // Возвращаем кэшированные данные в случае ошибки
+      return await OfflineService.getCachedContractors();
     }
   }
 
   // Получить инженеров
   static Future<List<Map<String, dynamic>>> getEngineers() async {
     try {
-      final response = await _supabase.from('profiles').select('id, name').eq('role', 'ENGINEER').order('name');
-      return List<Map<String, dynamic>>.from(response);
+      if (OfflineService.isOnline) {
+        final response = await _supabase.from('profiles').select('id, name').eq('role', 'ENGINEER').order('name');
+        final engineers = List<Map<String, dynamic>>.from(response);
+        // Кэшируем полученные данные
+        await OfflineService.cacheEngineers(engineers);
+        return engineers;
+      } else {
+        // Возвращаем кэшированные данные
+        return await OfflineService.getCachedEngineers();
+      }
     } catch (e) {
       // Log: Error fetching engineers: $e
-      return [];
+      // Возвращаем кэшированные данные в случае ошибки
+      return await OfflineService.getCachedEngineers();
     }
   }
 
@@ -982,12 +1014,50 @@ class DatabaseService {
     required DateTime fixDate,
   }) async {
     try {
+      print('markDefectAsFixed called: defect $defectId, offline: ${!OfflineService.isOnline}');
+      
+      // Если офлайн, добавляем в очередь синхронизации
+      if (!OfflineService.isOnline) {
+        await OfflineService.addPendingSync(
+          'mark_defect_fixed',
+          'defect',
+          defectId,
+          {
+            'executor_id': executorId,
+            'is_own_executor': isOwnExecutor,
+            'engineer_id': engineerId,
+            'fix_date': fixDate.toIso8601String(),
+          },
+        );
+        
+        // Обновляем статус в локальном кеше
+        await OfflineService.updateCachedDefectStatus(defectId, 9); // НА ПРОВЕРКУ
+        
+        // Возвращаем мок-объект дефекта для UI
+        return Defect(
+          id: defectId,
+          statusId: 9,
+          description: '',
+          isWarranty: false,
+          projectId: 0,
+          unitId: 0,
+          typeId: 0,
+          attachments: [],
+          fixedAt: fixDate.toIso8601String().split('T')[0],
+          fixedBy: engineerId,
+          engineerId: engineerId,
+          brigadeId: isOwnExecutor ? executorId : null,
+          contractorId: isOwnExecutor ? null : executorId,
+        );
+      }
+      
       // Проверяем доступ к дефекту
       final hasAccess = await _hasAccessToDefect(defectId);
       if (!hasAccess) {
         print('Access denied: User does not have access to defect $defectId');
         return null;
       }
+      
       final updates = <String, dynamic>{
         'status_id': 9, // НА ПРОВЕРКУ
         'fixed_at': fixDate.toIso8601String().split('T')[0],
@@ -1009,7 +1079,7 @@ class DatabaseService {
 
       return Defect.fromJson(response);
     } catch (e) {
-      // Log: Error marking defect as fixed: $e     
+      print('Error marking defect as fixed: $e');
       return null;
     }
   }

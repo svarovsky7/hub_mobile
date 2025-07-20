@@ -32,8 +32,6 @@ class _ConnectivityIndicatorState extends State<ConnectivityIndicator> {
       return const SizedBox.shrink();
     }
 
-    final theme = Theme.of(context);
-    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

@@ -106,7 +106,7 @@ class FileAttachmentWidget extends StatefulWidget {
         errorMessage = 'Нет разрешения на открытие файла';
         break;
       default:
-        errorMessage = result.message ?? 'Не удалось открыть файл';
+        errorMessage = result.message;
     }
     
     ScaffoldMessenger.of(context).showSnackBar(
@@ -174,9 +174,17 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
         }
       }
       
+      // Получаем список файлов, ожидающих удаления
+      final pendingDeleteIds = await OfflineService.getPendingDeleteAttachmentIds();
+      
+      // Фильтруем файлы, которые ожидают удаления
+      final filteredAttachments = allAttachments.where((attachment) {
+        return !pendingDeleteIds.contains(attachment.id);
+      }).toList();
+      
       if (mounted) {
         setState(() {
-          _attachments = allAttachments;
+          _attachments = filteredAttachments;
         });
         
         // Обновляем дефект с новым списком файлов
@@ -232,6 +240,14 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
           }
         }
       }
+      
+      // Получаем список файлов, ожидающих удаления
+      final pendingDeleteIds = await OfflineService.getPendingDeleteAttachmentIds();
+      
+      // Фильтруем файлы, которые ожидают удаления
+      attachments = attachments.where((attachment) {
+        return !pendingDeleteIds.contains(attachment.id);
+      }).toList();
       
       setState(() {
         _attachments = attachments;
@@ -569,9 +585,6 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
     );
   }
 
-  Future<void> _openFileWithSystem(DefectAttachment attachment) async {
-    await FileAttachmentWidget.openAttachmentWithSystem(context, attachment);
-  }
 }
 
 class _AttachmentTile extends StatelessWidget {

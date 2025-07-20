@@ -42,7 +42,7 @@ class OfflineService {
 
     _database = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         // Таблица проектов
         await db.execute('''
@@ -152,6 +152,33 @@ class OfflineService {
           )
         ''');
 
+        // Таблица бригад
+        await db.execute('''
+          CREATE TABLE brigades (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            last_sync INTEGER NOT NULL
+          )
+        ''');
+
+        // Таблица подрядчиков
+        await db.execute('''
+          CREATE TABLE contractors (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            last_sync INTEGER NOT NULL
+          )
+        ''');
+
+        // Таблица инженеров
+        await db.execute('''
+          CREATE TABLE engineers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            last_sync INTEGER NOT NULL
+          )
+        ''');
+
         // Индексы для быстрого поиска
         await db.execute('CREATE INDEX idx_units_project ON units(project_id)');
         await db.execute('CREATE INDEX idx_defects_project ON defects(project_id)');
@@ -175,6 +202,30 @@ class OfflineService {
             )
           ''');
           await db.execute('CREATE INDEX idx_cached_attachments_defect ON cached_attachments(defect_id)');
+        }
+        if (oldVersion < 3) {
+          // Добавляем таблицы бригад, подрядчиков и инженеров
+          await db.execute('''
+            CREATE TABLE brigades (
+              id INTEGER PRIMARY KEY,
+              name TEXT NOT NULL,
+              last_sync INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE contractors (
+              id INTEGER PRIMARY KEY,
+              name TEXT NOT NULL,
+              last_sync INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE engineers (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              last_sync INTEGER NOT NULL
+            )
+          ''');
         }
       },
     );
@@ -285,6 +336,27 @@ class OfflineService {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  // Кеширование списка проектов
+  static Future<void> cacheProjects(List<legacy.Project> projects, String userId) async {
+    if (_database == null) return;
+
+    final batch = _database!.batch();
+    for (final project in projects) {
+      batch.insert(
+        'projects',
+        {
+          'id': project.id,
+          'name': project.name,
+          'buildings': project.buildings.join(','),
+          'last_sync': DateTime.now().millisecondsSinceEpoch,
+          'user_id': userId,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit();
   }
 
   // Кэширование юнитов
@@ -515,6 +587,117 @@ class OfflineService {
     );
   }
 
+  // Кэширование бригад
+  static Future<void> cacheBrigades(List<Map<String, dynamic>> brigades) async {
+    if (_database == null) return;
+
+    final batch = _database!.batch();
+    for (final brigade in brigades) {
+      batch.insert(
+        'brigades',
+        {
+          'id': brigade['id'] as int,
+          'name': brigade['name'] as String,
+          'last_sync': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit();
+  }
+
+  // Кэширование подрядчиков
+  static Future<void> cacheContractors(List<Map<String, dynamic>> contractors) async {
+    if (_database == null) return;
+
+    final batch = _database!.batch();
+    for (final contractor in contractors) {
+      batch.insert(
+        'contractors',
+        {
+          'id': contractor['id'] as int,
+          'name': contractor['name'] as String,
+          'last_sync': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit();
+  }
+
+  // Кэширование инженеров
+  static Future<void> cacheEngineers(List<Map<String, dynamic>> engineers) async {
+    if (_database == null) return;
+
+    final batch = _database!.batch();
+    for (final engineer in engineers) {
+      batch.insert(
+        'engineers',
+        {
+          'id': engineer['id'] as String,
+          'name': engineer['name'] as String,
+          'last_sync': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit();
+  }
+
+  // Получение кешированных бригад
+  static Future<List<Map<String, dynamic>>> getCachedBrigades() async {
+    if (_database == null) return [];
+
+    final maps = await _database!.query('brigades', orderBy: 'name ASC');
+    return maps.map((map) => {
+      'id': map['id'] as int,
+      'name': map['name'] as String,
+    }).toList();
+  }
+
+  // Получение кешированных подрядчиков
+  static Future<List<Map<String, dynamic>>> getCachedContractors() async {
+    if (_database == null) return [];
+
+    final maps = await _database!.query('contractors', orderBy: 'name ASC');
+    return maps.map((map) => {
+      'id': map['id'] as int,
+      'name': map['name'] as String,
+    }).toList();
+  }
+
+  // Получение кешированных инженеров
+  static Future<List<Map<String, dynamic>>> getCachedEngineers() async {
+    if (_database == null) return [];
+
+    final maps = await _database!.query('engineers', orderBy: 'name ASC');
+    return maps.map((map) => {
+      'id': map['id'] as String,
+      'name': map['name'] as String,
+    }).toList();
+  }
+
+  // Получить список файлов, ожидающих удаления
+  static Future<List<String>> getPendingDeleteAttachmentIds() async {
+    if (_database == null) return [];
+    
+    try {
+      final pendingDeletes = await _database!.query(
+        'pending_sync',
+        where: 'operation = ?',
+        whereArgs: ['delete_attachment'],
+      );
+      
+      return pendingDeletes.map((operation) {
+        final data = jsonDecode(operation['data'] as String) as Map<String, dynamic>;
+        return data['attachment_id']?.toString() ?? '';
+      }).where((id) => id.isNotEmpty).toList();
+    } catch (e) {
+      print('Error getting pending delete attachments: $e');
+      return [];
+    }
+  }
+
   // Выполнение синхронизации
   static Future<bool> performSync({
     Function(double progress, String operation)? onProgress,
@@ -543,7 +726,6 @@ class OfflineService {
         }
         
         final operationType = operation['operation_type'] as String;
-        final entityType = operation['entity_type'] as String;
         final entityId = operation['entity_id'] as int?;
         
         onProgress?.call(
@@ -565,6 +747,9 @@ class OfflineService {
             break;
           case 'delete_attachment':
             success = await _syncDeleteAttachment(entityId!, operation['data'] as String);
+            break;
+          case 'mark_defect_fixed':
+            success = await _syncMarkDefectFixed(entityId!, operation['data'] as String);
             break;
         }
         
@@ -673,9 +858,47 @@ class OfflineService {
       
       // Вызываем API для удаления
       final result = await DatabaseService.deleteDefectAttachment(attachmentId);
+      
+      if (result) {
+        // После успешного удаления на сервере, обновляем локальный кеш
+        // Получаем актуальный список вложений с сервера
+        final updatedAttachments = await DatabaseService.getDefectAttachments(defectId);
+        
+        // Очищаем старый кеш и сохраняем обновленный список
+        await clearCachedAttachments(defectId);
+        await cacheDefectAttachments(updatedAttachments);
+        
+        print('Successfully synced attachment deletion and updated cache');
+      }
+      
       return result;
     } catch (e) {
       print('Failed to sync attachment deletion: $e');
+      return false;
+    }
+  }
+
+  // Синхронизация отправки дефекта на проверку
+  static Future<bool> _syncMarkDefectFixed(int defectId, String data) async {
+    try {
+      print('Syncing mark defect fixed with data: $data');
+      final dataMap = Map<String, dynamic>.from(jsonDecode(data));
+      final executorId = dataMap['executor_id'] as int;
+      final isOwnExecutor = dataMap['is_own_executor'] as bool;
+      final engineerId = dataMap['engineer_id'] as String;
+      final fixDate = DateTime.parse(dataMap['fix_date'] as String);
+      
+      // Вызываем API для отправки на проверку
+      final result = await DatabaseService.markDefectAsFixed(
+        defectId: defectId,
+        executorId: executorId,
+        isOwnExecutor: isOwnExecutor,
+        engineerId: engineerId,
+        fixDate: fixDate,
+      );
+      return result != null;
+    } catch (e) {
+      print('Failed to sync mark defect fixed: $e');
       return false;
     }
   }
@@ -724,23 +947,6 @@ class OfflineService {
     }
   }
 
-  // Синхронизация локальных файлов
-  static Future<void> _syncLocalFiles() async {
-    try {
-      print('Starting file synchronization...');
-      final success = await FileAttachmentService.syncLocalFiles();
-      
-      if (success) {
-        print('Successfully synced all local files');
-        // Удаляем операции синхронизации файлов из очереди
-        _pendingSyncOperations.removeWhere((operation) => operation.startsWith('upload_file_'));
-      } else {
-        print('Some files failed to sync');
-      }
-    } catch (e) {
-      print('Error during file sync: $e');
-    }
-  }
 
   // Очистка кэша
   static Future<void> clearCache() async {
@@ -751,6 +957,10 @@ class OfflineService {
     await _database!.delete('defects');
     await _database!.delete('defect_types');
     await _database!.delete('defect_statuses');
+    await _database!.delete('brigades');
+    await _database!.delete('contractors');
+    await _database!.delete('engineers');
+    await _database!.delete('cached_attachments');
   }
 
   // Закрытие сервиса

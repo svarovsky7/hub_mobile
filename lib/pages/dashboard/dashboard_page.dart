@@ -42,6 +42,7 @@ class _DashboardPageState extends State<DashboardPage> {
   List<legacy.DefectStatus> _defectStatuses = [];
   List<Map<String, dynamic>> _brigades = [];
   List<Map<String, dynamic>> _contractors = [];
+  List<Map<String, dynamic>> _engineers = [];
   bool _showOnlyDefects = false;
   Map<int, String> _statusColors = {};
   int? _selectedDefectType;
@@ -126,14 +127,29 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const AppDrawer(),
-      body: Column(
-        children: [
-          const ConnectivityIndicator(),
-          Expanded(
-            child: SafeArea(
-              child: BlocListener<ProjectBloc, ProjectState>(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        
+        // If we're not on home view, navigate to home
+        if (_currentView != DashboardView.home) {
+          setState(() {
+            _currentView = DashboardView.home;
+          });
+        } else {
+          // If already on home, allow normal back behavior (minimize app)
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        drawer: const AppDrawer(),
+        body: Column(
+          children: [
+            const ConnectivityIndicator(),
+            Expanded(
+              child: SafeArea(
+                child: BlocListener<ProjectBloc, ProjectState>(
                 listenWhen: (previous, current) {
                   // Слушаем переходы в loaded состояние или значимые изменения
                   if (current is ProjectStateLoaded) {
@@ -218,6 +234,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -477,6 +494,7 @@ class _DashboardPageState extends State<DashboardPage> {
         DatabaseService.getDefectStatuses(),
         DatabaseService.getBrigades(),
         DatabaseService.getContractors(),
+        DatabaseService.getEngineers(),
       ]);
 
       setState(() {
@@ -484,6 +502,7 @@ class _DashboardPageState extends State<DashboardPage> {
         _defectStatuses = results[1] as List<legacy.DefectStatus>;
         _brigades = results[2] as List<Map<String, dynamic>>;
         _contractors = results[3] as List<Map<String, dynamic>>;
+        _engineers = results[4] as List<Map<String, dynamic>>;
         
         // Создаем карту цветов по ID статуса
         _statusColors = {};
@@ -533,7 +552,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
 
   void _onMarkFixed(Defect defect) async {
-    if (_brigades.isEmpty && _contractors.isEmpty) {
+    if (_brigades.isEmpty && _contractors.isEmpty && _engineers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Данные исполнителей не загружены')),
       );
@@ -555,16 +574,18 @@ class _DashboardPageState extends State<DashboardPage> {
       builder: (context) => MarkFixedDialog(
         brigades: _brigades,
         contractors: _contractors,
+        engineers: _engineers,
         onMarkFixed: ({
           required int executorId,
           required bool isOwnExecutor,
           required DateTime fixDate,
+          required String engineerId,
         }) async {
           await _markDefectAsFixed(
             defect,
             executorId,
             isOwnExecutor,
-            currentUserId,
+            engineerId,
             fixDate,
           );
         },
@@ -604,63 +625,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> _handleFileSelection(Defect defect, String source) async {
-    try {
-      List<int>? fileBytes;
-      String? fileName;
-
-      if (source == 'camera') {
-        final picker = ImagePicker();
-        final image = await picker.pickImage(source: ImageSource.camera);
-        if (image != null) {
-          fileBytes = await File(image.path).readAsBytes();
-          fileName = image.name;
-        }
-      } else if (source == 'gallery') {
-        final picker = ImagePicker();
-        final image = await picker.pickImage(source: ImageSource.gallery);
-        if (image != null) {
-          fileBytes = await File(image.path).readAsBytes();
-          fileName = image.name;
-        }
-      } else if (source == 'files') {
-        final result = await FilePicker.platform.pickFiles();
-        if (result != null && result.files.single.bytes != null) {
-          fileBytes = result.files.single.bytes!;
-          fileName = result.files.single.name;
-        }
-      }
-
-      if (fileBytes != null && fileName != null) {
-        final attachment = await DatabaseService.uploadDefectAttachment(
-          defectId: defect.id,
-          fileName: fileName,
-          fileBytes: fileBytes,
-        );
-
-        if (attachment != null) {
-          await _refreshCurrentUnit();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Файл "$fileName" загружен')),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ошибка загрузки файла')),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
-        );
-      }
-    }
-  }
 
   Future<void> _markDefectAsFixed(
     Defect defect,

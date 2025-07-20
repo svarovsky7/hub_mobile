@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:open_file/open_file.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../../models/defect.dart';
-import '../../models/defect_attachment.dart';
 import '../../models/project.dart';
 import '../../shared/ui/components/cards/elevated_card.dart';
 import '../../services/database_service.dart';
 import '../../services/offline_service.dart';
-import '../status_chip/status_chip.dart';
 import '../file_attachment_widget.dart';
 
 class DefectCard extends StatefulWidget {
@@ -143,31 +136,6 @@ class _DefectCardState extends State<DefectCard> {
           
           const SizedBox(height: 12),
           
-          // Warranty switch
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Гарантийный случай',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Transform.scale(
-                scale: 0.8,
-                child: Switch(
-                  value: widget.defect.isWarranty,
-                  onChanged: _isUpdatingWarranty ? null : (value) => _toggleWarranty(),
-                  activeColor: theme.colorScheme.primary,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
           // Description
           Text(
             widget.defect.description,
@@ -231,6 +199,30 @@ class _DefectCardState extends State<DefectCard> {
           if (_isExpanded) ...[
             const SizedBox(height: 12),
             const Divider(),
+            const SizedBox(height: 12),
+            
+            // Warranty toggle
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Гарантийный случай',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Transform.scale(
+                  scale: 0.8,
+                  child: Switch(
+                    value: widget.defect.isWarranty,
+                    onChanged: _isUpdatingWarranty ? null : (value) => _toggleWarranty(),
+                    activeColor: theme.colorScheme.primary,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             
             // Hidden details

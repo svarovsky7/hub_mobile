@@ -5,7 +5,6 @@ import '../../entities/project/model/project.dart';
 import '../../models/project.dart' as legacy;
 import '../../shared/ui/components/feedback/empty_state.dart';
 import '../../widgets/defect_card/defect_card.dart';
-import '../../widgets/file_attachment_widget.dart';
 
 
 class DefectDetailsPage extends StatefulWidget {

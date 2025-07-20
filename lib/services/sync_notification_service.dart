@@ -374,18 +374,6 @@ class _SyncNotificationWidgetState extends State<_SyncNotificationWidget>
     }
   }
 
-  Color _getBackgroundColor(ThemeData theme) {
-    switch (widget.state) {
-      case SyncState.pending:
-        return theme.colorScheme.primaryContainer;
-      case SyncState.syncing:
-        return theme.colorScheme.primaryContainer;
-      case SyncState.success:
-        return Colors.green.shade50;
-      case SyncState.error:
-        return Colors.red.shade50;
-    }
-  }
 
   Color _getTextColor(ThemeData theme) {
     switch (widget.state) {

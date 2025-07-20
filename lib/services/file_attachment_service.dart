@@ -1,17 +1,14 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/defect_attachment.dart';
 import 'offline_service.dart';
 import 'database_service.dart';
 
 class FileAttachmentService {
-  static final _supabase = Supabase.instance.client;
   
   // Максимальный размер файла (10 МБ)
   static const int maxFileSize = 10 * 1024 * 1024;
@@ -135,9 +132,6 @@ class FileAttachmentService {
       final extension = path.extension(fileName).toLowerCase();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniqueFileName = '${timestamp}_$fileName';
-
-      // Определяем тип файла
-      final isImage = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].contains(extension);
 
       print('Processing file $fileName for defect $defectId. Online: ${OfflineService.isOnline}');
 
@@ -313,10 +307,16 @@ class FileAttachmentService {
             {'attachment_id': attachment.id},
           );
           
-          // Удаляем из локального кеша немедленно, чтобы пользователь не видел удаленный файл
-          await OfflineService.clearCachedAttachments(attachment.defectId);
+          // Получаем все текущие вложения (и серверные из кеша, и локальные)
+          final currentAttachments = await getDefectAttachments(attachment.defectId);
+          
+          // Фильтруем удаленное вложение
+          final remainingAttachments = currentAttachments
+              .where((a) => a.id != attachment.id)
+              .toList();
+          
           // Обновляем кеш без удаленного файла
-          final remainingAttachments = await getLocalAttachments(attachment.defectId);
+          await OfflineService.clearCachedAttachments(attachment.defectId);
           await OfflineService.cacheDefectAttachments(remainingAttachments);
         }
       }
@@ -388,11 +388,6 @@ class FileAttachmentService {
     }
   }
 
-  // Проверить является ли файл изображением
-  static bool _isImageFile(String fileName) {
-    final extension = path.extension(fileName).toLowerCase();
-    return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].contains(extension);
-  }
 
   // Получить размер файла в человекочитаемом формате
   static String getFileSize(int bytes) {

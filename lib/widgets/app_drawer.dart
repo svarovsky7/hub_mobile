@@ -643,14 +643,6 @@ class _AppDrawerState extends State<AppDrawer> {
     }
   }
 
-  Future<Map<String, dynamic>> _getUserStatistics() async {
-    try {
-      return await DatabaseService.getUserStatistics();
-    } catch (e) {
-      // Log error: Error getting user statistics: $e
-      return {};
-    }
-  }
 
   Future<Map<String, dynamic>> _getProjectStatistics(int projectId) async {
     try {
