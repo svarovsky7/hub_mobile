@@ -610,7 +610,10 @@ class OfflineService {
 
   // Получение кешированных файлов дефекта
   static Future<List<DefectAttachment>> getCachedAttachments(int defectId) async {
-    if (_database == null) return [];
+    if (_database == null) {
+      print('Database is null when getting cached attachments for defect $defectId');
+      return [];
+    }
 
     final maps = await _database!.query(
       'cached_attachments',
@@ -618,6 +621,11 @@ class OfflineService {
       whereArgs: [defectId],
       orderBy: 'created_at DESC',
     );
+
+    print('Found ${maps.length} cached attachments for defect $defectId');
+    for (final map in maps) {
+      print('Cached attachment: ${map['file_name']} (ID: ${map['id']})');
+    }
 
     return maps.map((map) => DefectAttachment(
       id: map['id'] as int,
@@ -776,20 +784,26 @@ class OfflineService {
   }
 
   // Получить список файлов, ожидающих удаления
-  static Future<List<String>> getPendingDeleteAttachmentIds() async {
+  static Future<List<int>> getPendingDeleteAttachmentIds() async {
     if (_database == null) return [];
     
     try {
       final pendingDeletes = await _database!.query(
         'pending_sync',
-        where: 'operation = ?',
+        where: 'operation_type = ?',
         whereArgs: ['delete_attachment'],
       );
       
       return pendingDeletes.map((operation) {
         final data = jsonDecode(operation['data'] as String) as Map<String, dynamic>;
-        return data['attachment_id']?.toString() ?? '';
-      }).where((id) => id.isNotEmpty).toList();
+        final attachmentId = data['attachment_id'];
+        if (attachmentId is int) {
+          return attachmentId;
+        } else if (attachmentId is String) {
+          return int.tryParse(attachmentId) ?? 0;
+        }
+        return 0;
+      }).where((id) => id > 0).toList();
     } catch (e) {
       print('Error getting pending delete attachments: $e');
       return [];

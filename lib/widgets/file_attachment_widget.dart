@@ -153,11 +153,15 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
 
   Future<void> _syncAttachmentsWithServer() async {
     try {
+      print('Syncing attachments with server for defect ${widget.defect.id}');
+      
       // Получаем актуальный список файлов с сервера
       final serverAttachments = await DatabaseService.getDefectAttachments(widget.defect.id);
+      print('Server attachments from sync: ${serverAttachments.length}');
       
       // Получаем локальные файлы
       final localAttachments = await FileAttachmentService.getLocalAttachments(widget.defect.id);
+      print('Local attachments from sync: ${localAttachments.length}');
       
       // Объединяем списки, исключая дубликаты
       final allAttachments = <DefectAttachment>[];
@@ -174,13 +178,22 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
         }
       }
       
+      print('All attachments before filtering (sync): ${allAttachments.length}');
+      
       // Получаем список файлов, ожидающих удаления
       final pendingDeleteIds = await OfflineService.getPendingDeleteAttachmentIds();
+      print('Pending delete IDs (sync): $pendingDeleteIds');
       
       // Фильтруем файлы, которые ожидают удаления
       final filteredAttachments = allAttachments.where((attachment) {
-        return !pendingDeleteIds.contains(attachment.id);
+        final shouldKeep = !pendingDeleteIds.contains(attachment.id);
+        if (!shouldKeep) {
+          print('Filtering out attachment in sync ${attachment.id} (${attachment.fileName})');
+        }
+        return shouldKeep;
       }).toList();
+      
+      print('Final attachments after sync: ${filteredAttachments.length}');
       
       if (mounted) {
         setState(() {
@@ -201,18 +214,24 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
     try {
       List<DefectAttachment> attachments = [];
       
+      print('Loading attachments for defect ${widget.defect.id}, isOnline: ${OfflineService.isOnline}');
+      
       if (OfflineService.isOnline) {
         // Если онлайн, загружаем с сервера и объединяем с локальными
         try {
           final serverAttachments = await DatabaseService.getDefectAttachments(widget.defect.id);
+          print('Server attachments count: ${serverAttachments.length}');
           attachments.addAll(serverAttachments);
         } catch (e) {
+          print('Error loading server attachments: $e');
           // Если не удалось загрузить с сервера, используем данные из дефекта
           attachments = List.from(widget.defect.attachments);
+          print('Using defect attachments count: ${attachments.length}');
         }
         
         // Добавляем локальные файлы, которых нет на сервере
         final localAttachments = await FileAttachmentService.getLocalAttachments(widget.defect.id);
+        print('Local attachments count: ${localAttachments.length}');
         for (final local in localAttachments) {
           final exists = attachments.any((server) => 
             server.fileName == local.fileName && 
@@ -225,9 +244,11 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
       } else {
         // Если офлайн, загружаем кешированные файлы + локальные
         final cachedAttachments = await OfflineService.getCachedAttachments(widget.defect.id);
+        print('Cached attachments count: ${cachedAttachments.length}');
         attachments.addAll(cachedAttachments);
         
         final localAttachments = await FileAttachmentService.getLocalAttachments(widget.defect.id);
+        print('Local attachments count: ${localAttachments.length}');
         
         // Добавляем локальные файлы, избегая дубликатов
         for (final local in localAttachments) {
@@ -241,13 +262,22 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
         }
       }
       
+      print('Total attachments before filtering: ${attachments.length}');
+      
       // Получаем список файлов, ожидающих удаления
       final pendingDeleteIds = await OfflineService.getPendingDeleteAttachmentIds();
+      print('Pending delete IDs: $pendingDeleteIds');
       
       // Фильтруем файлы, которые ожидают удаления
       attachments = attachments.where((attachment) {
-        return !pendingDeleteIds.contains(attachment.id);
+        final shouldKeep = !pendingDeleteIds.contains(attachment.id);
+        if (!shouldKeep) {
+          print('Filtering out attachment ${attachment.id} (${attachment.fileName})');
+        }
+        return shouldKeep;
       }).toList();
+      
+      print('Final attachments count: ${attachments.length}');
       
       setState(() {
         _attachments = attachments;
