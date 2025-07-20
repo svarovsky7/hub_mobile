@@ -12,6 +12,7 @@ import '../defect_details/defect_details_page.dart';
 import '../../models/unit.dart';
 import '../../models/defect.dart';
 import '../../services/database_service.dart';
+import '../../services/offline_service.dart';
 import '../../widgets/dialogs/status_change_dialog.dart';
 import '../../widgets/dialogs/mark_fixed_dialog.dart';
 import '../../widgets/app_drawer.dart';
@@ -290,7 +291,6 @@ class _DashboardPageState extends State<DashboardPage> {
             onAddDefect: () =>
                 setState(() => _currentView = DashboardView.addDefect),
             onStatusTap: _onStatusTap,
-            onAttachFiles: _onAttachFiles,
             onMarkFixed: _onMarkFixed,
           );
         }
@@ -531,35 +531,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  void _onAttachFiles(Defect defect) async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.camera_alt),
-            title: const Text('Камера'),
-            onTap: () => Navigator.pop(context, 'camera'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library),
-            title: const Text('Галерея'),
-            onTap: () => Navigator.pop(context, 'gallery'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.attach_file),
-            title: const Text('Файлы'),
-            onTap: () => Navigator.pop(context, 'files'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      await _handleFileSelection(defect, result);
-    }
-  }
 
   void _onMarkFixed(Defect defect) async {
     if (_brigades.isEmpty && _contractors.isEmpty) {
@@ -603,10 +574,12 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _updateDefectStatus(Defect defect, int newStatusId) async {
     try {
+      print('_updateDefectStatus called: defect ${defect.id}, old status ${defect.statusId}, new status $newStatusId, offline: ${!OfflineService.isOnline}');
       final updatedDefect = await DatabaseService.updateDefectStatus(
         defectId: defect.id,
         statusId: newStatusId,
       );
+      print('updateDefectStatus result: ${updatedDefect != null ? "success" : "null"}');
 
       if (updatedDefect != null) {
         await _refreshCurrentUnit();

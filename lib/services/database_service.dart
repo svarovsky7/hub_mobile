@@ -9,6 +9,9 @@ import 'offline_service.dart';
 
 class DatabaseService {
   static final _supabase = Supabase.instance.client;
+  
+  // Getter для доступа к Supabase клиенту из других сервисов
+  static SupabaseClient get supabaseClient => _supabase;
 
   // Получить все проекты пользователя
   static Future<List<legacy.Project>> getProjects() async {
@@ -494,12 +497,57 @@ class DatabaseService {
   // Получить юниты с дефектами для шахматки
   static Future<Map<String, dynamic>> getUnitsWithDefectsForBuilding(int projectId, String building) async {
     try {
+      // Если офлайн, загружаем из кеша
+      if (!OfflineService.isOnline) {
+        print('Offline mode: loading cached units for project $projectId, building $building');
+        final cachedUnits = await OfflineService.getCachedUnits(projectId, building);
+        
+        // Группируем по этажам для удобства отображения
+        final unitsByFloor = <int, List<Unit>>{};
+        for (final unit in cachedUnits) {
+          if (unit.floor != null) {
+            unitsByFloor.putIfAbsent(unit.floor!, () => []).add(unit);
+          }
+        }
+
+        // Сортируем юниты в каждом этаже
+        unitsByFloor.forEach((floor, units) {
+          units.sort((a, b) => a.name.compareTo(b.name));
+        });
+
+        return {
+          'units': cachedUnits,
+          'unitsByFloor': unitsByFloor,
+          'floors': unitsByFloor.keys.toList()..sort((a, b) => b.compareTo(a)), // По убыванию
+        };
+      }
+
       // Проверяем, есть ли у пользователя доступ к этому проекту
       final userProjects = await getUserProjects();
       final hasAccess = userProjects.any((project) => project.id == projectId);
       
       if (!hasAccess) {
         print('Access denied: User does not have access to project $projectId');
+        // Попробуем загрузить кешированные данные
+        print('Trying to load cached units for project $projectId, building $building');
+        final cachedUnits = await OfflineService.getCachedUnits(projectId, building);
+        if (cachedUnits.isNotEmpty) {
+          print('Found ${cachedUnits.length} cached units');
+          final unitsByFloor = <int, List<Unit>>{};
+          final floors = <int>{};
+          
+          for (final unit in cachedUnits) {
+            final floor = unit.floor ?? 0;
+            floors.add(floor);
+            unitsByFloor.putIfAbsent(floor, () => []).add(unit);
+          }
+          
+          return {
+            'units': cachedUnits,
+            'unitsByFloor': unitsByFloor,
+            'floors': floors.toList()..sort(),
+          };
+        }
         return {'units': <Unit>[], 'unitsByFloor': <int, List<Unit>>{}, 'floors': <int>[]};
       }
 
@@ -562,6 +610,10 @@ class DatabaseService {
         units.sort((a, b) => a.name.compareTo(b.name));
       });
 
+      // Кешируем загруженные данные для офлайн использования
+      await OfflineService.cacheUnits(unitsWithDefects, projectId);
+      await OfflineService.cacheDefects(defects);
+
       return {
         'units': unitsWithDefects,
         'unitsByFloor': unitsByFloor,
@@ -570,6 +622,32 @@ class DatabaseService {
     } catch (e) {
       // Log: Error fetching units with defects: $e
       print('Error in getUnitsWithDefectsForBuilding: $e');
+      
+      // При ошибке попробуем загрузить кешированные данные
+      try {
+        print('Attempting to load cached data as fallback');
+        final cachedUnits = await OfflineService.getCachedUnits(projectId, building);
+        if (cachedUnits.isNotEmpty) {
+          print('Found ${cachedUnits.length} cached units as fallback');
+          final unitsByFloor = <int, List<Unit>>{};
+          final floors = <int>{};
+          
+          for (final unit in cachedUnits) {
+            final floor = unit.floor ?? 0;
+            floors.add(floor);
+            unitsByFloor.putIfAbsent(floor, () => []).add(unit);
+          }
+          
+          return {
+            'units': cachedUnits,
+            'unitsByFloor': unitsByFloor,
+            'floors': floors.toList()..sort(),
+          };
+        }
+      } catch (cacheError) {
+        print('Error loading cached data: $cacheError');
+      }
+      
       return {'units': <Unit>[], 'unitsByFloor': <int, List<Unit>>{}, 'floors': <int>[]};
     }
   }
@@ -577,20 +655,57 @@ class DatabaseService {
   // Проверить доступ пользователя к дефекту через проект
   static Future<bool> _hasAccessToDefect(int defectId) async {
     try {
-      // Получаем проект дефекта
-      final defectResponse = await _supabase
-          .from('defects')
-          .select('project_id')
-          .eq('id', defectId)
-          .single();
+      int? projectId;
       
-      final projectId = defectResponse['project_id'] as int;
+      // Если оффлайн, пытаемся найти дефект в кешированных данных
+      if (!OfflineService.isOnline) {
+        print('Offline mode: checking cached defect access for defect $defectId');
+        final db = OfflineService.database;
+        if (db != null) {
+          final defectMaps = await db.query(
+            'defects',
+            columns: ['project_id'],
+            where: 'id = ?',
+            whereArgs: [defectId],
+          );
+          if (defectMaps.isNotEmpty) {
+            projectId = defectMaps.first['project_id'] as int?;
+            print('Found cached defect with project_id: $projectId');
+          }
+        }
+        
+        // Если не нашли в кеше, разрешаем доступ (предполагаем, что пользователь имеет права)
+        if (projectId == null) {
+          print('Defect not found in cache, allowing access in offline mode');
+          return true;
+        }
+      } else {
+        // Если онлайн, получаем проект дефекта с сервера
+        final defectResponse = await _supabase
+            .from('defects')
+            .select('project_id')
+            .eq('id', defectId)
+            .single();
+        
+        projectId = defectResponse['project_id'] as int;
+      }
+      
+      if (projectId == null) {
+        return false;
+      }
       
       // Проверяем доступ к проекту
       final userProjects = await getUserProjects();
-      return userProjects.any((project) => project.id == projectId);
+      final hasAccess = userProjects.any((project) => project.id == projectId);
+      print('Access check for defect $defectId (project $projectId): $hasAccess');
+      return hasAccess;
     } catch (e) {
       print('Error checking defect access: $e');
+      // В оффлайн режиме при ошибках разрешаем доступ
+      if (!OfflineService.isOnline) {
+        print('Allowing access due to offline mode and error');
+        return true;
+      }
       return false;
     }
   }
@@ -617,12 +732,15 @@ class DatabaseService {
       // Загружаем файл в storage
       await _supabase.storage.from('attachments').uploadBinary(filePath, Uint8List.fromList(fileBytes));
 
+      // Получаем полный публичный URL для файла
+      final publicUrl = _supabase.storage.from('attachments').getPublicUrl(filePath);
+
       // Сначала создаем запись в таблице attachments
       final attachmentResponse = await _supabase
           .from('attachments')
           .insert({
-            'path': filePath,
-            'storage_path': filePath,
+            'path': publicUrl, // Сохраняем полный URL для совместимости с веб-порталом
+            'storage_path': filePath, // Относительный путь в storage
             'original_name': fileName,
             'mime_type': _getMimeType(fileExtension),
             'created_by': _supabase.auth.currentUser?.id,
@@ -637,16 +755,21 @@ class DatabaseService {
         'attachment_id': attachmentResponse['id'],
       });
 
-      // Возвращаем DefectAttachment с данными из attachments
-      return DefectAttachment.fromJson({
+      // Создаем DefectAttachment с данными из attachments
+      final attachment = DefectAttachment.fromJson({
         'id': attachmentResponse['id'],
         'defect_id': defectId,
         'name': fileName,
-        'path': filePath,
+        'path': publicUrl, // Возвращаем полный URL
         'size': fileBytes.length,
         'created_by': attachmentResponse['created_by'],
         'created_at': attachmentResponse['created_at'],
       });
+
+      // Кешируем новый файл в локальной БД
+      await OfflineService.cacheDefectAttachments([attachment]);
+
+      return attachment;
     } catch (e) {
       // Log: Error uploading file: $e     
       return null;
@@ -700,10 +823,10 @@ class DatabaseService {
           .eq('defect_id', defectId)
           .order('attachments(created_at)', ascending: false);
 
-      return (response as List).map((item) {
+      final attachments = (response as List).map((item) {
         final attachment = item['attachments'];
         // Log: 'Attachment data: $attachment       
-      return DefectAttachment.fromJson({
+        return DefectAttachment.fromJson({
           'id': attachment['id'],
           'defect_id': defectId,
           'name': attachment['original_name'] ?? 'file',
@@ -713,9 +836,71 @@ class DatabaseService {
           'created_at': attachment['created_at'],
         });
       }).toList();
+
+      // Кешируем файлы в локальной БД для оффлайн доступа
+      await OfflineService.cacheDefectAttachments(attachments);
+
+      return attachments;
     } catch (e) {
       // Log: Error fetching defect attachments: $e     
       return [];
+    }
+  }
+
+  // Удалить вложение дефекта
+  static Future<bool> deleteDefectAttachment(int attachmentId) async {
+    try {
+      // Сначала получаем информацию о файле и связанном дефекте
+      final attachmentResponse = await _supabase
+          .from('attachments')
+          .select('storage_path, path')
+          .eq('id', attachmentId)
+          .single();
+
+      // Получаем defect_id для обновления кеша
+      final defectAttachmentResponse = await _supabase
+          .from('defect_attachments')
+          .select('defect_id')
+          .eq('attachment_id', attachmentId)
+          .single();
+
+      final defectId = defectAttachmentResponse['defect_id'] as int;
+
+      final storagePath = attachmentResponse['storage_path'] as String?;
+      
+      // Удаляем связь из defect_attachments
+      await _supabase
+          .from('defect_attachments')
+          .delete()
+          .eq('attachment_id', attachmentId);
+
+      // Удаляем запись из attachments
+      await _supabase
+          .from('attachments')
+          .delete()
+          .eq('id', attachmentId);
+
+      // Удаляем файл из storage, если есть storage_path
+      if (storagePath != null && storagePath.isNotEmpty) {
+        try {
+          await _supabase.storage
+              .from('attachments')
+              .remove([storagePath]);
+        } catch (e) {
+          print('Warning: Could not delete file from storage: $e');
+          // Не прерываем выполнение, если файл не удалось удалить из storage
+        }
+      }
+
+      // Обновляем кеш файлов для этого дефекта
+      await OfflineService.clearCachedAttachments(defectId);
+      final updatedAttachments = await getDefectAttachments(defectId);
+      await OfflineService.cacheDefectAttachments(updatedAttachments);
+
+      return true;
+    } catch (e) {
+      print('Error deleting attachment: $e');
+      return false;
     }
   }
 
@@ -755,42 +940,38 @@ class DatabaseService {
   // Получить текущего пользователя
   static Future<String?> getCurrentUserId() async {
     try {
-      final user = _supabase.auth.currentUser;
+      // Сначала проверяем текущего пользователя
+      var user = _supabase.auth.currentUser;
+      
+      // Если пользователя нет, пытаемся обновить сессию
+      if (user == null) {
+        try {
+          await _supabase.auth.refreshSession();
+          user = _supabase.auth.currentUser;
+        } catch (refreshError) {
+          print('Failed to refresh session: $refreshError');
+          // Если обновление не удалось, попробуем получить сессию из хранилища
+          try {
+            // Try to get the current session if it exists
+            final session = _supabase.auth.currentSession;
+            user = session?.user;
+          } catch (recoverError) {
+            print('Failed to get current session: $recoverError');
+          }
+        }
+      }
+      
       if (user != null) {
         // В profiles ID пользователя является UUID, совпадающим с auth ID
         return user.id;
       }
       return null;
     } catch (e) {
-      // Log: Error getting current user ID: $e     
+      print('Error getting current user ID: $e');
       return null;
     }
   }
 
-  // Удалить прикрепленный файл
-  static Future<bool> deleteDefectAttachment(int attachmentId) async {
-    try {
-      // Получаем информацию о файле для удаления из storage
-      final attachmentResponse = await _supabase
-          .from('defect_attachments')
-          .select('path')
-          .eq('id', attachmentId)
-          .single();
-
-      final filePath = attachmentResponse['path'];
-
-      // Удаляем файл из storage
-      await _supabase.storage.from('attachments').remove([filePath]);
-
-      // Удаляем запись из БД
-      await _supabase.from('defect_attachments').delete().eq('id', attachmentId);
-
-      return true;
-    } catch (e) {
-      // Log: Error deleting attachment: $e     
-      return false;
-    }
-  }
 
   // Отметить дефект как устраненный
   static Future<Defect?> markDefectAsFixed({
@@ -836,12 +1017,39 @@ class DatabaseService {
   // Обновить статус дефекта
   static Future<Defect?> updateDefectStatus({required int defectId, required int statusId}) async {
     try {
+      // Если офлайн, добавляем операцию в очередь синхронизации
+      if (!OfflineService.isOnline) {
+        print('Offline mode: queuing status update for defect $defectId');
+        await OfflineService.addPendingSync(
+          'update_defect_status',
+          'defect',
+          defectId,
+          {'status_id': statusId},
+        );
+        
+        // Обновляем локальный кеш
+        await OfflineService.updateCachedDefectStatus(defectId, statusId);
+        
+        // Возвращаем обновленный дефект
+        return Defect(
+          id: defectId,
+          statusId: statusId,
+          description: '',
+          isWarranty: false,
+          projectId: 0,
+          unitId: 0,
+          typeId: 0,
+          attachments: [],
+        );
+      }
+      
       // Проверяем доступ к дефекту
       final hasAccess = await _hasAccessToDefect(defectId);
       if (!hasAccess) {
         print('Access denied: User does not have access to defect $defectId');
         return null;
       }
+      
       final response = await _supabase
           .from('defects')
           .update({
@@ -855,7 +1063,16 @@ class DatabaseService {
 
       return Defect.fromJson(response);
     } catch (e) {
-      // Log: Error updating defect status: $e     
+      print('Error updating defect status: $e');
+      
+      // При ошибке сети добавляем в очередь синхронизации
+      await OfflineService.addPendingSync(
+        'update_defect_status',
+        'defect',
+        defectId,
+        {'status_id': statusId},
+      );
+      
       return null;
     }
   }
@@ -873,10 +1090,14 @@ class DatabaseService {
           {'is_warranty': isWarranty},
         );
         
-        // Возвращаем обновленный дефект из локального кэша
-        // Здесь нужно будет реализовать обновление локального кэша
-        // Пока возвращаем null чтобы указать что операция в очереди
-        return null;
+        // Возвращаем специальный объект Defect для офлайн режима
+        return Defect(
+          id: defectId,
+          description: 'Offline update',
+          isWarranty: isWarranty,
+          projectId: 0, // Временные значения
+          attachments: [],
+        );
       }
 
       // Проверяем доступ к дефекту

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../entities/project/bloc/project_bloc.dart';
@@ -14,18 +15,28 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  StreamSubscription<bool>? _connectivitySubscription;
+  
   @override
   void initState() {
     super.initState();
     _setupConnectivityListener();
   }
+  
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
 
   void _setupConnectivityListener() {
-    OfflineService.connectivityStream.listen((isOnline) {
+    _connectivitySubscription = OfflineService.connectivityStream.listen((isOnline) {
       if (isOnline && mounted) {
         // Проверяем нужно ли показать уведомление о синхронизации
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          SyncNotificationService.checkAndShowSyncNotification(context);
+          if (mounted) {
+            SyncNotificationService.checkAndShowSyncNotification(context);
+          }
         });
       }
     });

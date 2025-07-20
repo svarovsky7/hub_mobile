@@ -19,7 +19,6 @@ class DefectDetailsPage extends StatefulWidget {
     required this.onBack,
     required this.onAddDefect,
     this.onStatusTap,
-    this.onAttachFiles,
     this.onMarkFixed,
   });
 
@@ -31,7 +30,6 @@ class DefectDetailsPage extends StatefulWidget {
   final VoidCallback onBack;
   final VoidCallback onAddDefect;
   final Function(Defect)? onStatusTap;
-  final Function(Defect)? onAttachFiles;
   final Function(Defect)? onMarkFixed;
 
   @override
@@ -246,7 +244,6 @@ class _DefectDetailsPageState extends State<DefectDetailsPage> {
           defectType: defectType,
           defectStatus: defectStatus,
           onStatusTap: widget.onStatusTap != null ? () => widget.onStatusTap!(defect) : null,
-          onAttachFiles: widget.onAttachFiles != null ? () => widget.onAttachFiles!(defect) : null,
           onMarkFixed: widget.onMarkFixed != null ? () => widget.onMarkFixed!(defect) : null,
           onDefectUpdated: _updateDefect,
         );

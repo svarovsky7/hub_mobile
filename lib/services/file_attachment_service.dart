@@ -101,6 +101,7 @@ class FileAttachmentService {
     required int defectId,
     required List<File> files,
   }) async {
+    print('attachFilesToDefect called: defectId=$defectId, files=${files.length}, online=${OfflineService.isOnline}');
     final List<DefectAttachment> attachments = [];
 
     try {
@@ -138,6 +139,8 @@ class FileAttachmentService {
       // Определяем тип файла
       final isImage = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].contains(extension);
 
+      print('Processing file $fileName for defect $defectId. Online: ${OfflineService.isOnline}');
+
       // Если офлайн, сохраняем файл локально
       if (!OfflineService.isOnline) {
         final localPath = await _saveFileLocally(file, uniqueFileName);
@@ -159,17 +162,20 @@ class FileAttachmentService {
           createdAt: DateTime.now().toIso8601String(),
         );
       } else {
-        // Если онлайн, загружаем на сервер
-        final uploadedPath = await _uploadFileToServer(file, uniqueFileName);
-        
-        // Сохраняем в основную БД
-        final attachment = await _saveServerAttachment(
+        // Если онлайн, загружаем на сервер через DatabaseService
+        print('Online mode: uploading file to server');
+        final fileBytes = await file.readAsBytes();
+        final attachment = await DatabaseService.uploadDefectAttachment(
           defectId: defectId,
           fileName: fileName,
-          filePath: uploadedPath,
+          fileBytes: fileBytes,
         );
 
-        return attachment;
+        if (attachment != null) {
+          return attachment;
+        } else {
+          throw Exception('Failed to upload file to server');
+        }
       }
     } catch (e) {
       print('Error processing file ${file.path}: $e');
@@ -196,21 +202,6 @@ class FileAttachmentService {
     }
   }
 
-  // Загрузить файл на сервер
-  static Future<String> _uploadFileToServer(File file, String fileName) async {
-    try {
-      final bytes = await file.readAsBytes();
-      final uploadPath = 'defects/$fileName';
-      
-      await _supabase.storage
-          .from('attachments')
-          .uploadBinary(uploadPath, bytes);
-
-      return uploadPath;
-    } catch (e) {
-      throw Exception('Ошибка загрузки файла на сервер: $e');
-    }
-  }
 
   // Сохранить локальное вложение в БД
   static Future<int> _saveLocalAttachment({
@@ -218,8 +209,12 @@ class FileAttachmentService {
     required String fileName,
     required String filePath,
   }) async {
+    print('Saving local attachment: defectId=$defectId, fileName=$fileName, filePath=$filePath');
     final db = OfflineService.database;
-    if (db == null) throw Exception('Local database not initialized');
+    if (db == null) {
+      print('Error: Local database not initialized');
+      throw Exception('Local database not initialized');
+    }
 
     final id = await db.insert('local_files', {
       'file_path': filePath,
@@ -244,27 +239,6 @@ class FileAttachmentService {
     return id;
   }
 
-  // Сохранить серверное вложение в БД
-  static Future<DefectAttachment> _saveServerAttachment({
-    required int defectId,
-    required String fileName,
-    required String filePath,
-  }) async {
-    try {
-      // Здесь должен быть вызов API для сохранения в БД
-      // Пока возвращаем mock объект
-      return DefectAttachment(
-        id: DateTime.now().millisecondsSinceEpoch,
-        fileName: fileName,
-        filePath: filePath,
-        defectId: defectId,
-        fileSize: 0, // Mock size, should be provided by API
-        createdAt: DateTime.now().toIso8601String(),
-      );
-    } catch (e) {
-      throw Exception('Ошибка сохранения вложения на сервере: $e');
-    }
-  }
 
   // Обновить вложения дефекта
   static Future<void> _updateDefectAttachments(int defectId, List<DefectAttachment> attachments) async {
@@ -305,6 +279,52 @@ class FileAttachmentService {
     )).toList();
   }
 
+  // Удалить вложение
+  static Future<void> deleteAttachment(DefectAttachment attachment) async {
+    try {
+      // Если это локальный файл
+      if (attachment.filePath.startsWith('/') && !attachment.filePath.startsWith('http')) {
+        // Удаляем локальный файл
+        final file = File(attachment.filePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+        
+        // Удаляем из локальной БД
+        final db = OfflineService.database;
+        if (db != null) {
+          await db.delete(
+            'local_files',
+            where: 'entity_id = ? AND original_name = ?',
+            whereArgs: [attachment.defectId, attachment.fileName],
+          );
+        }
+      } else {
+        // Если это файл на сервере
+        if (OfflineService.isOnline) {
+          // Удаляем через API
+          await DatabaseService.deleteDefectAttachment(attachment.id);
+        } else {
+          // Добавляем в очередь на удаление
+          await OfflineService.addPendingSync(
+            'delete_attachment',
+            'defect',
+            attachment.defectId,
+            {'attachment_id': attachment.id},
+          );
+          
+          // Удаляем из локального кеша немедленно, чтобы пользователь не видел удаленный файл
+          await OfflineService.clearCachedAttachments(attachment.defectId);
+          // Обновляем кеш без удаленного файла
+          final remainingAttachments = await getLocalAttachments(attachment.defectId);
+          await OfflineService.cacheDefectAttachments(remainingAttachments);
+        }
+      }
+    } catch (e) {
+      throw Exception('Ошибка удаления файла: $e');
+    }
+  }
+
   // Синхронизировать локальные файлы
   static Future<bool> syncLocalFiles() async {
     if (!OfflineService.isOnline) return false;
@@ -325,27 +345,28 @@ class FileAttachmentService {
 
         if (await file.exists()) {
           try {
-            // Загружаем на сервер
-            final timestamp = DateTime.now().millisecondsSinceEpoch;
-            final uniqueFileName = '${timestamp}_$fileName';
-            final serverPath = await _uploadFileToServer(file, uniqueFileName);
-
-            // Сохраняем в серверную БД
-            await _saveServerAttachment(
+            // Читаем файл и загружаем используя существующий метод DatabaseService
+            final fileBytes = await file.readAsBytes();
+            final attachment = await DatabaseService.uploadDefectAttachment(
               defectId: fileRecord['entity_id'] as int,
               fileName: fileName,
-              filePath: serverPath,
+              fileBytes: fileBytes,
             );
 
-            // Помечаем как загруженный
-            await db.update(
-              'local_files',
-              {'uploaded': 1},
-              where: 'id = ?',
-              whereArgs: [fileRecord['id']],
-            );
+            if (attachment != null) {
+              // Помечаем как загруженный
+              await db.update(
+                'local_files',
+                {'uploaded': 1},
+                where: 'id = ?',
+                whereArgs: [fileRecord['id']],
+              );
 
-            print('Successfully synced file: $fileName');
+              print('Successfully synced file: $fileName');
+            } else {
+              print('Failed to upload file to server: $fileName');
+              return false;
+            }
           } catch (e) {
             print('Failed to sync file $fileName: $e');
             return false;

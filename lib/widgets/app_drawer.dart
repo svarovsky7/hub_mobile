@@ -7,6 +7,8 @@ import '../entities/project/bloc/project_event.dart';
 import '../entities/project/model/project.dart';
 import '../models/project.dart' as legacy;
 import '../services/database_service.dart';
+import '../services/offline_service.dart';
+import '../services/sync_notification_service.dart';
 import '../providers/theme_provider.dart';
 import '../main.dart';
 
@@ -468,6 +470,73 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
+  Future<void> _clearCacheAndSync(BuildContext context) async {
+    // Показываем диалог подтверждения
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Очистить кеш?'),
+        content: const Text(
+          'Это действие удалит все локальные данные и принудительно загрузит их с сервера. '
+          'Убедитесь, что у вас есть подключение к интернету.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Очистить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Показываем индикатор загрузки
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // Очищаем кеш
+      await OfflineService.clearCache();
+      
+      // Принудительно запускаем полную синхронизацию
+      if (OfflineService.isOnline) {
+        SyncNotificationService.showSyncNotification(context);
+      }
+
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Закрываем индикатор загрузки
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Кеш очищен, начинается синхронизация'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Закрываем индикатор загрузки
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка очистки кеша: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildSettingsSection(BuildContext context, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,6 +577,31 @@ class _AppDrawerState extends State<AppDrawer> {
               ),
             );
           },
+        ),
+
+        // Кнопка очистки кеша и полной синхронизации
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.refresh,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Очистить кеш',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              IconButton(
+                onPressed: () => _clearCacheAndSync(context),
+                icon: const Icon(Icons.cleaning_services),
+                tooltip: 'Очистить кеш и синхронизировать',
+              ),
+            ],
+          ),
         ),
       ],
     );

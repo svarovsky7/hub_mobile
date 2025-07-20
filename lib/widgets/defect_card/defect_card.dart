@@ -21,7 +21,6 @@ class DefectCard extends StatefulWidget {
     required this.defectStatus,
     this.onStatusTap,
     this.showActions = true,
-    this.onAttachFiles,
     this.onMarkFixed,
     this.onDefectUpdated,
   });
@@ -31,7 +30,6 @@ class DefectCard extends StatefulWidget {
   final DefectStatus defectStatus;
   final VoidCallback? onStatusTap;
   final bool showActions;
-  final VoidCallback? onAttachFiles;
   final VoidCallback? onMarkFixed;
   final Function(Defect)? onDefectUpdated;
 
@@ -267,25 +265,6 @@ class _DefectCardState extends State<DefectCard> {
             const SizedBox(height: 12),
             Row(
               children: [
-                if (widget.onAttachFiles != null)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onAttachFiles,
-                      icon: const Icon(Icons.attach_file, size: 16),
-                      label: const Text(
-                        'Файлы',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                        minimumSize: const Size(0, 32),
-                      ),
-                    ),
-                  ),
-                
-                if (widget.onAttachFiles != null && widget.onMarkFixed != null)
-                  const SizedBox(width: 8),
-                
                 if (widget.onMarkFixed != null)
                   Expanded(
                     child: ElevatedButton.icon(
@@ -312,8 +291,8 @@ class _DefectCardState extends State<DefectCard> {
   }
 
   bool _shouldShowActions() {
-    // Don't show actions for completed or rejected defects
-    return widget.defect.statusId != 3 && widget.defect.statusId != 4 && widget.defect.statusId != 9;
+    // Always show action buttons
+    return true;
   }
 
   String _getShortStatusName(String fullName) {
@@ -387,49 +366,43 @@ class _DefectCardState extends State<DefectCard> {
       print('Update warranty result: ${updatedDefect?.isWarranty}');
 
       if (updatedDefect != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                updatedDefect.isWarranty 
-                  ? 'Дефект помечен как гарантийный' 
-                  : 'Дефект помечен как не гарантийный'
-              ),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-          
-          // Уведомляем родительский виджет об обновлении
-          widget.onDefectUpdated?.call(updatedDefect);
-        }
-      } else {
         // Проверяем офлайн-режим
         final isOffline = await _checkOfflineMode();
         
-        print('Failed to update warranty status');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 isOffline 
                   ? 'Изменение сохранено офлайн. Синхронизируется при подключении к интернету.'
-                  : 'Не удалось обновить статус гарантии'
+                  : (updatedDefect.isWarranty 
+                      ? 'Дефект помечен как гарантийный' 
+                      : 'Дефект помечен как не гарантийный')
               ),
               duration: Duration(seconds: isOffline ? 3 : 2),
-              action: isOffline ? null : SnackBarAction(
+            ),
+          );
+          
+          // Создаем правильно обновленный дефект
+          final correctUpdatedDefect = widget.defect.copyWith(
+            isWarranty: !widget.defect.isWarranty,
+          );
+          widget.onDefectUpdated?.call(correctUpdatedDefect);
+        }
+      } else {
+        // Ошибка обновления
+        print('Failed to update warranty status');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Не удалось обновить статус гарантии'),
+              duration: const Duration(seconds: 2),
+              action: SnackBarAction(
                 label: 'Повторить',
                 onPressed: () => _toggleWarranty(),
               ),
             ),
           );
-          
-          // В офлайн-режиме создаем локально обновленный дефект
-          if (isOffline) {
-            final localUpdatedDefect = widget.defect.copyWith(
-              isWarranty: !widget.defect.isWarranty,
-            );
-            widget.onDefectUpdated?.call(localUpdatedDefect);
-          }
         }
       }
     } catch (e) {

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -7,6 +9,7 @@ import '../models/unit.dart';
 import '../models/defect.dart';
 import '../models/defect_attachment.dart';
 import 'database_service.dart';
+import 'file_attachment_service.dart';
 
 class OfflineService {
   static Database? _database;
@@ -14,6 +17,8 @@ class OfflineService {
   static bool _isOnline = true;
   static Timer? _syncTimer;
   static final Set<String> _pendingSyncOperations = {};
+  static DateTime? _lastConnectivityChange;
+  static bool _isCurrentlySyncing = false;
 
   // Getters
   static Stream<bool> get connectivityStream => _connectivityController.stream;
@@ -37,7 +42,7 @@ class OfflineService {
 
     _database = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         // Таблица проектов
         await db.execute('''
@@ -133,11 +138,44 @@ class OfflineService {
           )
         ''');
 
+        // Таблица кешированных файлов с сервера
+        await db.execute('''
+          CREATE TABLE cached_attachments (
+            id INTEGER PRIMARY KEY,
+            defect_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            created_by TEXT,
+            created_at TEXT,
+            last_sync INTEGER NOT NULL
+          )
+        ''');
+
         // Индексы для быстрого поиска
         await db.execute('CREATE INDEX idx_units_project ON units(project_id)');
         await db.execute('CREATE INDEX idx_defects_project ON defects(project_id)');
         await db.execute('CREATE INDEX idx_defects_unit ON defects(unit_id)');
         await db.execute('CREATE INDEX idx_pending_sync_type ON pending_sync(operation_type)');
+        await db.execute('CREATE INDEX idx_cached_attachments_defect ON cached_attachments(defect_id)');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // Добавляем таблицу кешированных файлов
+          await db.execute('''
+            CREATE TABLE cached_attachments (
+              id INTEGER PRIMARY KEY,
+              defect_id INTEGER NOT NULL,
+              file_name TEXT NOT NULL,
+              file_path TEXT NOT NULL,
+              file_size INTEGER DEFAULT 0,
+              created_by TEXT,
+              created_at TEXT,
+              last_sync INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('CREATE INDEX idx_cached_attachments_defect ON cached_attachments(defect_id)');
+        }
       },
     );
   }
@@ -165,13 +203,53 @@ class OfflineService {
 
   // Обработка восстановления подключения
   static Future<void> _onConnectivityRestored() async {
+    final now = DateTime.now();
+    
+    // Проверяем, не было ли недавнего восстановления соединения
+    if (_lastConnectivityChange != null && 
+        now.difference(_lastConnectivityChange!).inSeconds < 5) {
+      return; // Игнорируем частые изменения состояния
+    }
+    
+    _lastConnectivityChange = now;
     print('Internet connection restored');
+    
+    // Проверяем незавершенные операции синхронизации
+    await _resumeIncompleteSync();
+    
     await _checkPendingSync();
     
     if (hasPendingSync) {
       // Ждем немного и показываем уведомление о синхронизации
       await Future.delayed(const Duration(milliseconds: 500));
       // Здесь можно добавить глобальное уведомление через EventBus или Provider
+    }
+  }
+
+  // Возобновление незавершенной синхронизации
+  static Future<void> _resumeIncompleteSync() async {
+    if (_database == null) return;
+
+    try {
+      // Проверяем есть ли операции, которые были начаты, но не завершены
+      final pendingOperations = await _database!.query('pending_sync');
+      final unuploadedFiles = await _database!.query('local_files', where: 'uploaded = 0');
+      
+      if (pendingOperations.isNotEmpty || unuploadedFiles.isNotEmpty) {
+        print('Resuming incomplete sync: ${pendingOperations.length} operations, ${unuploadedFiles.length} files');
+        
+        // Обновляем список ожидающих операций
+        _pendingSyncOperations.clear();
+        for (final op in pendingOperations) {
+          _pendingSyncOperations.add('${op['operation_type']}_${op['entity_id']}');
+        }
+        
+        for (final file in unuploadedFiles) {
+          _pendingSyncOperations.add('upload_file_${file['id']}');
+        }
+      }
+    } catch (e) {
+      print('Error resuming incomplete sync: $e');
     }
   }
 
@@ -311,7 +389,7 @@ class OfflineService {
         whereArgs: [map['id']],
       );
       
-      final defects = defectMaps.map((defectMap) => _mapToDefect(defectMap)).toList();
+      final defects = await Future.wait(defectMaps.map((defectMap) => _mapToDefect(defectMap)));
       
       units.add(Unit(
         id: map['id'] as int,
@@ -327,7 +405,10 @@ class OfflineService {
   }
 
   // Преобразование карты в объект Defect
-  static Defect _mapToDefect(Map<String, dynamic> map) {
+  static Future<Defect> _mapToDefect(Map<String, dynamic> map) async {
+    // Получаем кешированные файлы для этого дефекта
+    final attachments = await getCachedAttachments(map['id'] as int);
+    
     return Defect(
       id: map['id'] as int,
       description: map['description'] as String,
@@ -346,7 +427,7 @@ class OfflineService {
       brigadeId: map['brigade_id'] as int?,
       contractorId: map['contractor_id'] as int?,
       fixedBy: map['fixed_by'] as String?,
-      attachments: [], // Вложения обрабатываются отдельно
+      attachments: attachments,
     );
   }
 
@@ -358,52 +439,173 @@ class OfflineService {
       'operation_type': operationType,
       'entity_type': entityType,
       'entity_id': entityId,
-      'data': data.toString(),
+      'data': jsonEncode(data), // Правильно кодируем в JSON
       'created_at': DateTime.now().millisecondsSinceEpoch,
     });
 
     _pendingSyncOperations.add('${operationType}_$entityId');
   }
 
-  // Выполнение синхронизации
-  static Future<bool> performSync() async {
-    if (!_isOnline || _database == null) return false;
+  // Кеширование файлов дефекта
+  static Future<void> cacheDefectAttachments(List<DefectAttachment> attachments) async {
+    if (_database == null) return;
 
+    final batch = _database!.batch();
+    for (final attachment in attachments) {
+      batch.insert(
+        'cached_attachments',
+        {
+          'id': attachment.id,
+          'defect_id': attachment.defectId,
+          'file_name': attachment.fileName,
+          'file_path': attachment.filePath,
+          'file_size': attachment.fileSize,
+          'created_by': attachment.createdBy,
+          'created_at': attachment.createdAt,
+          'last_sync': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit();
+  }
+
+  // Получение кешированных файлов дефекта
+  static Future<List<DefectAttachment>> getCachedAttachments(int defectId) async {
+    if (_database == null) return [];
+
+    final maps = await _database!.query(
+      'cached_attachments',
+      where: 'defect_id = ?',
+      whereArgs: [defectId],
+      orderBy: 'created_at DESC',
+    );
+
+    return maps.map((map) => DefectAttachment(
+      id: map['id'] as int,
+      fileName: map['file_name'] as String,
+      filePath: map['file_path'] as String,
+      defectId: defectId,
+      fileSize: (map['file_size'] as int?) ?? 0,
+      createdBy: map['created_by'] as String?,
+      createdAt: map['created_at'] as String?,
+    )).toList();
+  }
+
+  // Удаление кешированных файлов дефекта (для обновления)
+  static Future<void> clearCachedAttachments(int defectId) async {
+    if (_database == null) return;
+    
+    await _database!.delete(
+      'cached_attachments',
+      where: 'defect_id = ?',
+      whereArgs: [defectId],
+    );
+  }
+
+  // Обновление статуса дефекта в кеше
+  static Future<void> updateCachedDefectStatus(int defectId, int statusId) async {
+    if (_database == null) return;
+
+    await _database!.update(
+      'defects',
+      {'status_id': statusId},
+      where: 'id = ?',
+      whereArgs: [defectId],
+    );
+  }
+
+  // Выполнение синхронизации
+  static Future<bool> performSync({
+    Function(double progress, String operation)? onProgress,
+  }) async {
+    if (!_isOnline || _database == null) return false;
+    if (_isCurrentlySyncing) return false; // Предотвращаем повторную синхронизацию
+
+    _isCurrentlySyncing = true;
+    
     try {
       // Получаем все операции для синхронизации
       final pendingOperations = await _database!.query('pending_sync', orderBy: 'created_at ASC');
+      final localFiles = await _database!.query('local_files', where: 'uploaded = 0');
       
+      final totalOperations = pendingOperations.length + localFiles.length;
+      if (totalOperations == 0) return true;
+      
+      int completedOperations = 0;
+      
+      // Синхронизация операций
       for (final operation in pendingOperations) {
+        if (!_isOnline) {
+          // Интернет пропал во время синхронизации
+          _isCurrentlySyncing = false;
+          return false;
+        }
+        
         final operationType = operation['operation_type'] as String;
         final entityType = operation['entity_type'] as String;
         final entityId = operation['entity_id'] as int?;
+        
+        onProgress?.call(
+          completedOperations / totalOperations,
+          'Синхронизация $operationType...',
+        );
         
         bool success = false;
         
         switch (operationType) {
           case 'update_defect_warranty':
-            // Здесь вызываем реальный API для обновления гарантии
             success = await _syncDefectWarrantyUpdate(entityId!, operation['data'] as String);
             break;
+          case 'update_defect_status':
+            success = await _syncDefectStatusUpdate(entityId!, operation['data'] as String);
+            break;
           case 'create_defect':
-            // Синхронизация создания дефекта
             success = await _syncDefectCreate(operation['data'] as String);
             break;
-          // Добавить другие типы операций...
+          case 'delete_attachment':
+            success = await _syncDeleteAttachment(entityId!, operation['data'] as String);
+            break;
         }
         
         if (success) {
           await _database!.delete('pending_sync', where: 'id = ?', whereArgs: [operation['id']]);
           _pendingSyncOperations.remove('${operationType}_$entityId');
+          completedOperations++;
         }
       }
       
       // Синхронизация файлов
-      await _syncLocalFiles();
+      for (final fileRecord in localFiles) {
+        if (!_isOnline) {
+          // Интернет пропал во время синхронизации
+          _isCurrentlySyncing = false;
+          return false;
+        }
+        
+        final fileName = fileRecord['original_name'] as String;
+        onProgress?.call(
+          completedOperations / totalOperations,
+          'Загрузка файла $fileName...',
+        );
+        
+        final success = await _syncSingleFile(fileRecord);
+        if (success) {
+          completedOperations++;
+        }
+      }
       
+      // Финальный прогресс
+      onProgress?.call(1.0, 'Завершение синхронизации...');
+      
+      // После успешной синхронизации проверяем, остались ли еще операции
+      await _checkPendingSync();
+      
+      _isCurrentlySyncing = false;
       return true;
     } catch (e) {
       print('Sync error: $e');
+      _isCurrentlySyncing = false;
       return false;
     }
   }
@@ -436,30 +638,107 @@ class OfflineService {
     }
   }
 
+  // Синхронизация обновления статуса дефекта
+  static Future<bool> _syncDefectStatusUpdate(int defectId, String data) async {
+    try {
+      print('Syncing defect status update with data: $data');
+      final dataMap = Map<String, dynamic>.from(jsonDecode(data));
+      final statusId = dataMap['status_id'] as int;
+      
+      // Вызываем Supabase API напрямую для обновления статуса
+      final supabase = DatabaseService.supabaseClient;
+      await supabase
+          .from('defects')
+          .update({
+            'status_id': statusId,
+            'updated_by': supabase.auth.currentUser?.id,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', defectId);
+      
+      return true;
+    } catch (e) {
+      print('Failed to sync defect status update: $e');
+      return false;
+    }
+  }
+
+  // Синхронизация удаления вложения
+  static Future<bool> _syncDeleteAttachment(int defectId, String data) async {
+    try {
+      print('Syncing attachment deletion with data: $data');
+      // Парсим JSON данные
+      final dataMap = Map<String, dynamic>.from(jsonDecode(data));
+      final attachmentId = dataMap['attachment_id'] as int;
+      
+      // Вызываем API для удаления
+      final result = await DatabaseService.deleteDefectAttachment(attachmentId);
+      return result;
+    } catch (e) {
+      print('Failed to sync attachment deletion: $e');
+      return false;
+    }
+  }
+
+  // Синхронизация одного файла
+  static Future<bool> _syncSingleFile(Map<String, dynamic> fileRecord) async {
+    try {
+      final filePath = fileRecord['file_path'] as String;
+      final fileName = fileRecord['original_name'] as String;
+      final file = File(filePath);
+
+      if (await file.exists()) {
+        final fileBytes = await file.readAsBytes();
+        final attachment = await DatabaseService.uploadDefectAttachment(
+          defectId: fileRecord['entity_id'] as int,
+          fileName: fileName,
+          fileBytes: fileBytes,
+        );
+
+        if (attachment != null) {
+          await _database!.update(
+            'local_files',
+            {'uploaded': 1},
+            where: 'id = ?',
+            whereArgs: [fileRecord['id']],
+          );
+          
+          _pendingSyncOperations.remove('upload_file_${fileRecord['id']}');
+          print('Successfully synced file: $fileName');
+          return true;
+        }
+      } else {
+        // Файл не существует, удаляем запись
+        await _database!.delete(
+          'local_files',
+          where: 'id = ?',
+          whereArgs: [fileRecord['id']],
+        );
+        _pendingSyncOperations.remove('upload_file_${fileRecord['id']}');
+      }
+      
+      return false;
+    } catch (e) {
+      print('Failed to sync file: $e');
+      return false;
+    }
+  }
+
   // Синхронизация локальных файлов
   static Future<void> _syncLocalFiles() async {
-    if (_database == null) return;
-
-    final unuploadedFiles = await _database!.query(
-      'local_files',
-      where: 'uploaded = 0',
-    );
-
-    for (final fileRecord in unuploadedFiles) {
-      try {
-        // Здесь будет логика загрузки файла на сервер
-        // После успешной загрузки:
-        // await _database!.update(
-        //   'local_files',
-        //   {'uploaded': 1},
-        //   where: 'id = ?',
-        //   whereArgs: [fileRecord['id']],
-        // );
-        
-        _pendingSyncOperations.remove('upload_file_${fileRecord['id']}');
-      } catch (e) {
-        print('Failed to upload file ${fileRecord['file_path']}: $e');
+    try {
+      print('Starting file synchronization...');
+      final success = await FileAttachmentService.syncLocalFiles();
+      
+      if (success) {
+        print('Successfully synced all local files');
+        // Удаляем операции синхронизации файлов из очереди
+        _pendingSyncOperations.removeWhere((operation) => operation.startsWith('upload_file_'));
+      } else {
+        print('Some files failed to sync');
       }
+    } catch (e) {
+      print('Error during file sync: $e');
     }
   }
 
