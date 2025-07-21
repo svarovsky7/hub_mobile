@@ -17,9 +17,6 @@ import '../../widgets/dialogs/status_change_dialog.dart';
 import '../../widgets/dialogs/mark_fixed_dialog.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/connectivity_indicator.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 
 enum DashboardView { home, apartment, addDefect }
 

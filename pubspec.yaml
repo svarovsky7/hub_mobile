@@ -55,6 +55,9 @@ dependencies:
   # Persistent storage
   shared_preferences: ^2.3.3
   
+  # Secure storage for credentials
+  flutter_secure_storage: ^9.2.2
+  
   # URL launcher for opening files
   url_launcher: ^6.3.1
   

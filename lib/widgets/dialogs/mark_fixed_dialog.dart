@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import '../../services/offline_service.dart';
 import '../../services/database_service.dart';
 

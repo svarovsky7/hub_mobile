@@ -161,10 +161,12 @@ class _DefectDetailsPageState extends State<DefectDetailsPage> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                onPressed: widget.onAddDefect,
+                onPressed: widget.unit.locked ? null : widget.onAddDefect,
                 icon: const Icon(Icons.add, color: Colors.white),
                 style: IconButton.styleFrom(
-                  backgroundColor: theme.colorScheme.tertiary,
+                  backgroundColor: widget.unit.locked 
+                      ? Colors.grey.withValues(alpha: 0.5)
+                      : theme.colorScheme.tertiary,
                 ),
               ),
             ],
@@ -182,10 +184,12 @@ class _DefectDetailsPageState extends State<DefectDetailsPage> {
         height: MediaQuery.of(context).size.height * 0.6,
         child: EmptyState(
           title: 'Дефектов нет',
-          subtitle: 'В этой квартире пока не зарегистрированы дефекты',
-          emoji: '🏠',
-          actionText: 'Добавить дефект',
-          onAction: widget.onAddDefect,
+          subtitle: widget.unit.locked 
+              ? 'В этой квартире пока не зарегистрированы дефекты. Объект заблокирован для редактирования.'
+              : 'В этой квартире пока не зарегистрированы дефекты',
+          emoji: widget.unit.locked ? '🔒' : '🏠',
+          actionText: widget.unit.locked ? null : 'Добавить дефект',
+          onAction: widget.unit.locked ? null : widget.onAddDefect,
         ),
       ),
     );
@@ -256,6 +260,7 @@ class _DefectDetailsPageState extends State<DefectDetailsPage> {
           onStatusTap: widget.onStatusTap != null ? () => widget.onStatusTap!(defect) : null,
           onMarkFixed: widget.onMarkFixed != null ? () => widget.onMarkFixed!(defect) : null,
           onDefectUpdated: _updateDefect,
+          isUnitLocked: widget.unit.locked,
         );
       },
     );

@@ -21,7 +21,9 @@
       "Bash(perl:*)",
       "Bash(git checkout:*)",
       "Bash(/bin/bash -c \"flutter pub get\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(/usr/bin/flutter run)",
+      "Bash(/mnt/c/flutter/bin/dart analyze)"
     ],
     "deny": []
   }

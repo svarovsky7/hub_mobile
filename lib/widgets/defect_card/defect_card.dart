@@ -16,6 +16,7 @@ class DefectCard extends StatefulWidget {
     this.showActions = true,
     this.onMarkFixed,
     this.onDefectUpdated,
+    this.isUnitLocked = false,
   });
 
   final Defect defect;
@@ -25,6 +26,7 @@ class DefectCard extends StatefulWidget {
   final bool showActions;
   final VoidCallback? onMarkFixed;
   final Function(Defect)? onDefectUpdated;
+  final bool isUnitLocked;
 
   @override
   State<DefectCard> createState() => _DefectCardState();
@@ -84,7 +86,7 @@ class _DefectCardState extends State<DefectCard> {
                   ),
                   const SizedBox(height: 2),
                   GestureDetector(
-                    onTap: widget.onStatusTap,
+                    onTap: widget.isUnitLocked ? null : widget.onStatusTap,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -114,7 +116,7 @@ class _DefectCardState extends State<DefectCard> {
                               fontSize: 11,
                             ),
                           ),
-                          if (widget.onStatusTap != null) ...[
+                          if (widget.onStatusTap != null && !widget.isUnitLocked) ...[
                             const SizedBox(width: 2),
                             Icon(
                               Icons.keyboard_arrow_down,
@@ -216,7 +218,7 @@ class _DefectCardState extends State<DefectCard> {
                   scale: 0.8,
                   child: Switch(
                     value: widget.defect.isWarranty,
-                    onChanged: _isUpdatingWarranty ? null : (value) => _toggleWarranty(),
+                    onChanged: (_isUpdatingWarranty || widget.isUnitLocked) ? null : (value) => _toggleWarranty(),
                     activeColor: theme.colorScheme.primary,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -242,6 +244,7 @@ class _DefectCardState extends State<DefectCard> {
             // File attachment widget
             FileAttachmentWidget(
               defect: widget.defect,
+              isUnitLocked: widget.isUnitLocked,
               onAttachmentsChanged: (attachments) {
                 // Update the defect with new attachments
                 final updatedDefect = widget.defect.copyWith(attachments: attachments);
@@ -260,7 +263,7 @@ class _DefectCardState extends State<DefectCard> {
                 if (widget.onMarkFixed != null)
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: widget.onMarkFixed,
+                      onPressed: widget.isUnitLocked ? null : widget.onMarkFixed,
                       icon: const Icon(Icons.check_circle_outline, size: 16),
                       label: const Text(
                         'На проверку',
@@ -401,7 +404,7 @@ class _DefectCardState extends State<DefectCard> {
       print('Error updating warranty: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Ошибка при обновлении статуса гарантии'),
             duration: const Duration(seconds: 2),
           ),

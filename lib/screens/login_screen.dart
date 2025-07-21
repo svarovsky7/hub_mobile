@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../app/app.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,12 +16,90 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberCredentials = true;
+  
+  // Secure storage for credentials
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
+
+  // Очистка сохраненных учетных данных (при выходе)
+  static Future<void> clearSavedCredentials() async {
+    try {
+      const secureStorage = FlutterSecureStorage(
+        aOptions: AndroidOptions(
+          encryptedSharedPreferences: true,
+        ),
+        iOptions: IOSOptions(
+          accessibility: KeychainAccessibility.first_unlock_this_device,
+        ),
+      );
+      await secureStorage.delete(key: 'saved_password');
+      await secureStorage.write(key: 'remember_credentials', value: 'false');
+    } catch (e) {
+      print('Error clearing credentials: $e');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // Загрузка сохраненных учетных данных
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final savedEmail = await _secureStorage.read(key: 'saved_email');
+      final savedPassword = await _secureStorage.read(key: 'saved_password');
+      final rememberPreference = await _secureStorage.read(key: 'remember_credentials');
+      
+      if (savedEmail != null && savedEmail.isNotEmpty) {
+        _emailController.text = savedEmail;
+      }
+      
+      if (savedPassword != null && savedPassword.isNotEmpty && rememberPreference == 'true') {
+        _passwordController.text = savedPassword;
+      }
+      
+      if (rememberPreference != null) {
+        setState(() {
+          _rememberCredentials = rememberPreference == 'true';
+        });
+      }
+    } catch (e) {
+      print('Error loading saved credentials: $e');
+    }
+  }
+
+  // Сохранение учетных данных
+  Future<void> _saveCredentials() async {
+    try {
+      if (_rememberCredentials) {
+        await _secureStorage.write(key: 'saved_email', value: _emailController.text.trim());
+        await _secureStorage.write(key: 'saved_password', value: _passwordController.text);
+        await _secureStorage.write(key: 'remember_credentials', value: 'true');
+      } else {
+        // Если пользователь снял галочку, сохраняем только email
+        await _secureStorage.write(key: 'saved_email', value: _emailController.text.trim());
+        await _secureStorage.delete(key: 'saved_password');
+        await _secureStorage.write(key: 'remember_credentials', value: 'false');
+      }
+    } catch (e) {
+      print('Error saving credentials: $e');
+    }
   }
 
   Future<void> _signIn() async {
@@ -41,6 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // Log: Sign in response: ${response.user?.id}
       
       if (response.user != null && mounted) {
+        // Сохраняем учетные данные при успешном входе
+        await _saveCredentials();
+        
         // Log: User authenticated successfully, navigating to App
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const App()),
@@ -82,9 +164,10 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
+            child: AutofillGroup(
+              child: Form(
+                key: _formKey,
+                child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -109,6 +192,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email, AutofillHints.username],
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'Email',
                       hintText: 'example@mail.com',
@@ -129,6 +214,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    autofillHints: const [AutofillHints.password],
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _signIn(),
                     decoration: InputDecoration(
                       labelText: 'Пароль',
                       prefixIcon: const Icon(Icons.lock_outline),
@@ -155,6 +243,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  // Checkbox для запоминания данных
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _rememberCredentials,
+                        onChanged: (value) {
+                          setState(() {
+                            _rememberCredentials = value ?? false;
+                          });
+                        },
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _rememberCredentials = !_rememberCredentials;
+                            });
+                          },
+                          child: const Text(
+                            'Запомнить данные для входа',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   FilledButton(
@@ -188,6 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text('Забыли пароль?'),
                   ),
                 ],
+                ),
               ),
             ),
           ),

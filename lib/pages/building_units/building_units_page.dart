@@ -5,6 +5,7 @@ import '../../models/project.dart' as legacy;
 import '../../shared/ui/components/feedback/loading_overlay.dart';
 import '../../shared/ui/components/feedback/empty_state.dart';
 import '../../widgets/unit_grid/unit_tile.dart';
+import '../../services/database_service.dart';
 
 class BuildingUnitsPage extends StatefulWidget {
   const BuildingUnitsPage({
@@ -53,6 +54,26 @@ class BuildingUnitsPage extends StatefulWidget {
 class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
   bool _showDefectTypes = false;
   bool _showUnitStatuses = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSortOrders();
+  }
+
+  @override
+  void didUpdateWidget(BuildingUnitsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Перезагружаем порядок сортировки при изменении проекта или здания
+    if (oldWidget.selectedProject?.id != widget.selectedProject?.id ||
+        oldWidget.selectedBuilding != widget.selectedBuilding) {
+      _loadSortOrders();
+    }
+  }
+
+  Future<void> _loadSortOrders() async {
+    // Reserved for future floor sorting implementation
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -597,8 +618,14 @@ class _BuildingUnitsPageState extends State<BuildingUnitsPage> {
       }
     }
 
-    // Sort floors in descending order
-    final floors = unitsByFloor.keys.toList()..sort((a, b) => b.compareTo(a));
+    // Sort floors from highest to lowest (10, 9, 8, 7, ...)
+    final floors = unitsByFloor.keys.toList();
+    print('Floors before sorting: $floors');
+    
+    // ПРИНУДИТЕЛЬНАЯ сортировка по убыванию: от высокого этажа к низкому
+    floors.sort((a, b) => b.compareTo(a));
+    
+    print('Floors after sorting: $floors');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

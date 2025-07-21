@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../entities/project/bloc/project_bloc.dart';
 import '../entities/project/bloc/project_state.dart';
 import '../entities/project/bloc/project_event.dart';
@@ -21,11 +22,29 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   int? _defaultProjectId;
+  Map<String, dynamic>? _cachedUserInfo;
+  List<legacy.Project>? _cachedUserProjects;
+  final Map<int, Map<String, dynamic>> _cachedProjectStats = {};
+  DateTime? _lastCacheTime;
+  
+  static const Duration _cacheTimeout = Duration(minutes: 5);
 
   @override
   void initState() {
     super.initState();
     _loadDefaultProject();
+    _loadCachedData();
+  }
+  
+  Future<void> _loadCachedData() async {
+    // Загружаем данные в фоне для кеширования
+    _getUserInfo();
+    _getUserProjects();
+  }
+
+  bool _isCacheValid() {
+    return _lastCacheTime != null && 
+           DateTime.now().difference(_lastCacheTime!) < _cacheTimeout;
   }
 
   Future<void> _loadDefaultProject() async {
@@ -43,6 +62,8 @@ class _AppDrawerState extends State<AppDrawer> {
       setState(() {
         _defaultProjectId = projectId;
       });
+      // Сбрасываем кеш пользователя после изменения
+      _cachedUserInfo = null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Проект установлен как основной'),
@@ -58,6 +79,8 @@ class _AppDrawerState extends State<AppDrawer> {
       setState(() {
         _defaultProjectId = null;
       });
+      // Сбрасываем кеш пользователя после изменения
+      _cachedUserInfo = null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Основной проект убран'),
@@ -635,36 +658,64 @@ class _AppDrawerState extends State<AppDrawer> {
   }
 
   Future<Map<String, dynamic>> _getUserInfo() async {
+    // Возвращаем кешированные данные если они валидны
+    if (_cachedUserInfo != null && _isCacheValid()) {
+      return _cachedUserInfo!;
+    }
+    
     try {
-      return await DatabaseService.getUserInfo();
+      final userInfo = await DatabaseService.getUserInfo();
+      _cachedUserInfo = userInfo;
+      _lastCacheTime = DateTime.now();
+      return userInfo;
     } catch (e) {
       // Log error: Error getting user info: $e
-      return {};
+      return _cachedUserInfo ?? {};
     }
   }
 
 
   Future<Map<String, dynamic>> _getProjectStatistics(int projectId) async {
+    // Возвращаем кешированные данные если они валидны
+    if (_cachedProjectStats.containsKey(projectId) && _isCacheValid()) {
+      return _cachedProjectStats[projectId]!;
+    }
+    
     try {
-      return await DatabaseService.getProjectStatistics(projectId);
+      final stats = await DatabaseService.getProjectStatistics(projectId);
+      _cachedProjectStats[projectId] = stats;
+      _lastCacheTime = DateTime.now();
+      return stats;
     } catch (e) {
       // Log error: Error getting project statistics: $e
-      return {};
+      return _cachedProjectStats[projectId] ?? {};
     }
   }
 
   Future<List<legacy.Project>> _getUserProjects() async {
+    // Возвращаем кешированные данные если они валидны
+    if (_cachedUserProjects != null && _isCacheValid()) {
+      return _cachedUserProjects!;
+    }
+    
     try {
-      return await DatabaseService.getUserProjects();
+      final projects = await DatabaseService.getUserProjects();
+      _cachedUserProjects = projects;
+      _lastCacheTime = DateTime.now();
+      return projects;
     } catch (e) {
       // Log error: Error getting user projects: $e
-      return [];
+      return _cachedUserProjects ?? [];
     }
   }
 
   void _handleLogout(BuildContext context) async {
     try {
       await DatabaseService.logout();
+      
+      // Очищаем сохраненные пароли (оставляем только email)
+      await _clearSavedCredentials();
+      
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthWrapper()),
@@ -677,6 +728,23 @@ class _AppDrawerState extends State<AppDrawer> {
           SnackBar(content: Text('Ошибка при выходе: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _clearSavedCredentials() async {
+    try {
+      const secureStorage = FlutterSecureStorage(
+        aOptions: AndroidOptions(
+          encryptedSharedPreferences: true,
+        ),
+        iOptions: IOSOptions(
+          accessibility: KeychainAccessibility.first_unlock_this_device,
+        ),
+      );
+      await secureStorage.delete(key: 'saved_password');
+      await secureStorage.write(key: 'remember_credentials', value: 'false');
+    } catch (e) {
+      print('Error clearing credentials: $e');
     }
   }
 }

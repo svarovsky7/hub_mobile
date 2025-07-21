@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'dart:io';
 import '../models/defect.dart';
@@ -13,11 +14,13 @@ import '../services/database_service.dart';
 class FileAttachmentWidget extends StatefulWidget {
   final Defect defect;
   final Function(List<DefectAttachment>)? onAttachmentsChanged;
+  final bool isUnitLocked;
 
   const FileAttachmentWidget({
     super.key,
     required this.defect,
     this.onAttachmentsChanged,
+    this.isUnitLocked = false,
   });
 
   @override
@@ -122,11 +125,23 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
 
   // Проверяем, можно ли редактировать дефект (добавлять/удалять файлы)
   bool get _canEditDefect {
+    if (widget.isUnitLocked) {
+      return false; // Для заблокированных объектов можно только добавлять файлы
+    }
     final statusId = widget.defect.statusId;
     // Статус 10 означает "Закрыто"
     final canEdit = statusId != 10;
-    print('_canEditDefect for defect ${widget.defect.id}: statusId=$statusId, canEdit=$canEdit');
+    print('_canEditDefect for defect ${widget.defect.id}: statusId=$statusId, canEdit=$canEdit, unitLocked=${widget.isUnitLocked}');
     return canEdit;
+  }
+
+  // Проверяем, можно ли добавлять файлы (разрешено даже для заблокированных объектов)
+  bool get _canAddFiles {
+    final statusId = widget.defect.statusId;
+    // Статус 10 означает "Закрыто"
+    final canAdd = statusId != 10;
+    print('_canAddFiles for defect ${widget.defect.id}: statusId=$statusId, canAdd=$canAdd');
+    return canAdd;
   }
 
   @override
@@ -209,6 +224,7 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
   }
 
   Future<void> _loadAttachments() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     
     try {
@@ -279,13 +295,15 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
       
       print('Final attachments count: ${attachments.length}');
       
-      setState(() {
-        _attachments = attachments;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() {
+          _attachments = attachments;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка загрузки файлов: $e')),
         );
@@ -348,6 +366,7 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
 
   Future<void> _takePhoto() async {
     print('_takePhoto called');
+    if (!mounted) return;
     setState(() => _isLoading = true);
     
     try {
@@ -367,12 +386,15 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _pickFiles({bool filesOnly = false}) async {
     print('_pickFiles called (filesOnly: $filesOnly)');
+    if (!mounted) return;
     setState(() => _isLoading = true);
     
     try {
@@ -396,7 +418,9 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -415,9 +439,11 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
 
       print('Successfully attached ${newAttachments.length} files');
 
-      setState(() {
-        _attachments.addAll(newAttachments);
-      });
+      if (mounted) {
+        setState(() {
+          _attachments.addAll(newAttachments);
+        });
+      }
 
       widget.onAttachmentsChanged?.call(_attachments);
 
@@ -475,6 +501,7 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
 
     if (confirmed != true) return;
 
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -482,13 +509,15 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
       await FileAttachmentService.deleteAttachment(attachment);
 
       // Удаляем из локального списка
-      setState(() {
-        _attachments.removeWhere((a) => 
-          a.id == attachment.id || 
-          (a.fileName == attachment.fileName && a.defectId == attachment.defectId)
-        );
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _attachments.removeWhere((a) => 
+            a.id == attachment.id || 
+            (a.fileName == attachment.fileName && a.defectId == attachment.defectId)
+          );
+          _isLoading = false;
+        });
+      }
 
       // Уведомляем родительский виджет
       widget.onAttachmentsChanged?.call(_attachments);
@@ -502,8 +531,8 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
         );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка удаления файла: $e')),
         );
@@ -534,7 +563,7 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            else if (_canEditDefect) ...[
+            else if (_canAddFiles) ...[
               Builder(
                 builder: (context) {
                   print('Building add file button for defect ${widget.defect.id}, canEdit: $_canEditDefect');
@@ -579,7 +608,7 @@ class _FileAttachmentWidgetState extends State<FileAttachmentWidget> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                if (_canEditDefect)
+                if (_canAddFiles)
                   TextButton.icon(
                     onPressed: _showAttachmentOptions,
                     icon: const Icon(Icons.add),
@@ -774,6 +803,8 @@ class _AttachmentViewDialog extends StatelessWidget {
         child: Image.file(
           File(attachment.filePath),
           fit: BoxFit.contain,
+          cacheHeight: 1024,
+          cacheWidth: 1024,
           errorBuilder: (context, error, stackTrace) {
             return const Center(
               child: Column(
@@ -794,36 +825,32 @@ class _AttachmentViewDialog extends StatelessWidget {
     } else {
       // Удаленное изображение
       return InteractiveViewer(
-        child: Image.network(
-          attachment.filePath,
+        child: CachedNetworkImage(
+          imageUrl: attachment.filePath,
           fit: BoxFit.contain,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                    : null,
-                color: Colors.white,
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error, size: 48, color: Colors.red),
-                  SizedBox(height: 8),
-                  Text(
-                    'Не удалось загрузить изображение',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ],
-              ),
-            );
-          },
+          memCacheHeight: 1024,
+          memCacheWidth: 1024,
+          maxHeightDiskCache: 1024,
+          maxWidthDiskCache: 1024,
+          progressIndicatorBuilder: (context, url, downloadProgress) => Center(
+            child: CircularProgressIndicator(
+              value: downloadProgress.progress,
+              color: Colors.white,
+            ),
+          ),
+          errorWidget: (context, url, error) => const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, size: 48, color: Colors.red),
+                SizedBox(height: 8),
+                Text(
+                  'Не удалось загрузить изображение',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }

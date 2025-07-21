@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../models/unit.dart';
+import '../../pages/unit_document_archive/unit_document_archive_page.dart';
 
 class UnitTile extends StatelessWidget {
   const UnitTile({
     super.key,
     required this.unit,
     required this.onTap,
-    this.width = 68,
-    this.height = 52,
+    this.width = 56,
+    this.height = 44,
     this.statusColors = const {},
   });
 
@@ -26,7 +27,16 @@ class UnitTile extends StatelessWidget {
     final textColor = _getUnitTextColor(status, theme);
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: () async {
+        if (unit.locked) {
+          final shouldContinue = await _showLockedUnitMessage(context);
+          if (shouldContinue == true) {
+            _showUnitOptionsMenu(context);
+          }
+        } else {
+          _showUnitOptionsMenu(context);
+        }
+      },
       child: Container(
         width: width,
         height: height,
@@ -44,48 +54,48 @@ class UnitTile extends StatelessWidget {
             Center(
               child: Text(
                 unit.name,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textColor),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: textColor),
               ),
             ),
 
             // Lock icon for locked units
             if (unit.locked)
               Positioned(
-                top: -6,
-                left: -6,
+                top: -4,
+                left: -4,
                 child: Container(
-                  width: 22,
-                  height: 22,
+                  width: 18,
+                  height: 18,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.error,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: Colors.white, width: 1.5),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.3),
                         spreadRadius: 1,
-                        blurRadius: 3,
+                        blurRadius: 2,
                         offset: const Offset(0, 1),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.lock, color: Colors.white, size: 14),
+                  child: const Icon(Icons.lock, color: Colors.white, size: 11),
                 ),
               ),
 
             // Defect count badge
             if (unit.defects.isNotEmpty)
               Positioned(
-                top: -4,
-                right: -4,
+                top: -3,
+                right: -3,
                 child: Container(
-                  width: 18,
-                  height: 18,
+                  width: 16,
+                  height: 16,
                   decoration: BoxDecoration(color: theme.colorScheme.error, shape: BoxShape.circle),
                   child: Center(
                     child: Text(
                       '${unit.defects.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -93,6 +103,102 @@ class UnitTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Future<bool?> _showLockedUnitMessage(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Заблокирован'),
+          ],
+        ),
+        content: const Text(
+          'Объект заблокирован.\n\n'
+          'Доступно:\n'
+          '• Просмотр дефектов\n'
+          '• Добавление файлов\n\n'
+          'Недоступно:\n'
+          '• Изменение статусов\n'
+          '• Изменение гарантии\n'
+          '• Удаление файлов',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Продолжить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUnitOptionsMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        final theme = Theme.of(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text(
+                      'Квартира ${unit.name}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${unit.floor} этаж',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.bug_report_outlined),
+                title: const Text('Просмотреть дефекты'),
+                subtitle: Text('${unit.defects.length} дефектов'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onTap();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.archive_outlined),
+                title: const Text('Архив документации'),
+                subtitle: const Text('Все документы по объекту'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => UnitDocumentArchivePage(unit: unit),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 

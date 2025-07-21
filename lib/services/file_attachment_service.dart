@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:mime/mime.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/defect_attachment.dart';
 import 'offline_service.dart';
 import 'database_service.dart';
@@ -129,7 +129,6 @@ class FileAttachmentService {
     try {
       // Генерируем уникальное имя файла
       final fileName = path.basename(file.path);
-      final extension = path.extension(fileName).toLowerCase();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniqueFileName = '${timestamp}_$fileName';
 
@@ -451,6 +450,155 @@ class FileAttachmentService {
       }
     } catch (e) {
       print('Error cleaning up old files: $e');
+    }
+  }
+
+  // Прикрепить файлы к объекту (unit)
+  static Future<List<DefectAttachment>> attachFilesToUnit({
+    required int unitId,
+    required List<File> files,
+  }) async {
+    final attachments = <DefectAttachment>[];
+    
+    for (final file in files) {
+      try {
+        print('Processing file ${file.path} for unit $unitId. Online: ${OfflineService.isOnline}');
+        
+        final originalFileName = file.uri.pathSegments.last;
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final fileName = '${timestamp}_$originalFileName';
+        
+        if (OfflineService.isOnline) {
+          // Онлайн режим - загружаем на сервер
+          print('Online mode: uploading file to server');
+          
+          // Загружаем файл в storage
+          final storagePath = 'unit_attachments/$unitId/$fileName';
+          await DatabaseService.supabaseClient.storage
+              .from('attachments')
+              .upload(storagePath, file);
+          
+          // Получаем публичный URL файла
+          final publicUrl = DatabaseService.supabaseClient.storage
+              .from('attachments')
+              .getPublicUrl(storagePath);
+          
+          // Получаем текущего пользователя
+          final user = DatabaseService.supabaseClient.auth.currentUser;
+          final userId = user?.id;
+          
+          // Определяем MIME тип файла
+          final mimeType = lookupMimeType(fileName) ?? 'application/octet-stream';
+          
+          // Создаем запись в таблице attachments
+          final attachmentResponse = await DatabaseService.supabaseClient
+              .from('attachments')
+              .insert({
+                'path': publicUrl,
+                'storage_path': storagePath,
+                'original_name': originalFileName,
+                'mime_type': mimeType,
+                'uploaded_by': userId,
+                'created_by': userId,
+              })
+              .select()
+              .single();
+          
+          // Создаем связь в unit_attachments
+          await DatabaseService.supabaseClient
+              .from('unit_attachments')
+              .insert({
+                'unit_id': unitId,
+                'attachment_id': attachmentResponse['id'],
+              });
+          
+          attachments.add(DefectAttachment(
+            id: attachmentResponse['id'],
+            defectId: unitId,
+            fileName: originalFileName,
+            filePath: publicUrl,
+            fileSize: await file.length(),
+            createdAt: DateTime.now().toIso8601String(),
+          ));
+        } else {
+          // Офлайн режим - сохраняем локально
+          print('Offline mode: saving file locally');
+          
+          final localPath = await _saveFileLocally(file, fileName);
+          final tempId = DateTime.now().millisecondsSinceEpoch;
+          
+          final attachment = DefectAttachment(
+            id: tempId,
+            defectId: unitId,
+            fileName: originalFileName,
+            filePath: localPath,
+            fileSize: await file.length(),
+            createdAt: DateTime.now().toIso8601String(),
+          );
+          
+          // Сохраняем информацию для последующей синхронизации
+          await OfflineService.saveUnitAttachmentForSync(unitId, attachment);
+          
+          attachments.add(attachment);
+        }
+      } catch (e) {
+        print('Error attaching file to unit: $e');
+        throw Exception('Ошибка при прикреплении файла: $e');
+      }
+    }
+    
+    return attachments;
+  }
+
+  // Удалить документ объекта
+  static Future<void> deleteUnitAttachment(DefectAttachment attachment) async {
+    try {
+      final isLocal = attachment.filePath.startsWith('/') && !attachment.filePath.startsWith('http');
+      
+      if (isLocal) {
+        // Локальный файл - удаляем с диска
+        final file = File(attachment.filePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+        
+        // Удаляем из новой таблицы pending_unit_attachments
+        final db = OfflineService.database;
+        if (db != null) {
+          await db.delete(
+            'pending_unit_attachments',
+            where: 'id = ?',
+            whereArgs: [attachment.id],
+          );
+        }
+        
+        // Удаляем из старой очереди синхронизации если есть (для совместимости)
+        await OfflineService.removeUnitAttachmentFromSync(attachment.id);
+      } else if (OfflineService.isOnline) {
+        // Удаленный файл - удаляем с сервера
+        // Сначала удаляем связь в unit_attachments
+        await DatabaseService.supabaseClient
+            .from('unit_attachments')
+            .delete()
+            .eq('attachment_id', attachment.id);
+        
+        // Удаляем из storage
+        await DatabaseService.supabaseClient.storage
+            .from('attachments')
+            .remove([attachment.filePath]);
+            
+        // Удаляем запись из attachments
+        await DatabaseService.supabaseClient
+            .from('attachments')
+            .delete()
+            .eq('id', attachment.id);
+      } else {
+        // Офлайн режим - добавляем в очередь на удаление
+        await OfflineService.addUnitAttachmentToDeleteQueue(attachment.id);
+      }
+    } catch (e) {
+      print('Error deleting unit attachment: $e');
+      throw Exception('Ошибка при удалении файла: $e');
     }
   }
 }

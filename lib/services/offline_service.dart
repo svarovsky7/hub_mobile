@@ -9,7 +9,6 @@ import '../models/unit.dart';
 import '../models/defect.dart';
 import '../models/defect_attachment.dart';
 import 'database_service.dart';
-import 'file_attachment_service.dart';
 
 class OfflineService {
   static Database? _database;
@@ -42,7 +41,7 @@ class OfflineService {
 
     _database = await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         // Таблица проектов
         await db.execute('''
@@ -170,6 +169,29 @@ class OfflineService {
           )
         ''');
 
+        // Таблица ожидающих синхронизации unit attachments
+        await db.execute('''
+          CREATE TABLE pending_unit_attachments (
+            id INTEGER PRIMARY KEY,
+            unit_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            created_at TEXT,
+            sync_status TEXT DEFAULT 'pending',
+            created_timestamp INTEGER NOT NULL
+          )
+        ''');
+
+        // Таблица ожидающих удаления unit attachments
+        await db.execute('''
+          CREATE TABLE pending_unit_deletions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attachment_id INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+          )
+        ''');
+
         // Таблица инженеров
         await db.execute('''
           CREATE TABLE engineers (
@@ -227,6 +249,29 @@ class OfflineService {
             )
           ''');
         }
+        if (oldVersion < 4) {
+          // Добавляем таблицы для unit attachments
+          await db.execute('''
+            CREATE TABLE pending_unit_attachments (
+              id INTEGER PRIMARY KEY,
+              unit_id INTEGER NOT NULL,
+              file_name TEXT NOT NULL,
+              file_path TEXT NOT NULL,
+              file_size INTEGER DEFAULT 0,
+              created_at TEXT,
+              sync_status TEXT DEFAULT 'pending',
+              created_timestamp INTEGER NOT NULL
+            )
+          ''');
+
+          await db.execute('''
+            CREATE TABLE pending_unit_deletions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              attachment_id INTEGER NOT NULL,
+              created_at INTEGER NOT NULL
+            )
+          ''');
+        }
       },
     );
   }
@@ -273,6 +318,9 @@ class OfflineService {
       
       // Запускаем полную синхронизацию дефектов и файлов
       await _syncAllDefectsAndAttachments();
+      
+      // Синхронизируем unit attachments
+      await syncUnitAttachments();
       
       if (hasPendingSync) {
         // Ждем немного и показываем уведомление о синхронизации
@@ -1081,5 +1129,274 @@ class OfflineService {
     await _connectivityController.close();
     await _database?.close();
     _database = null;
+  }
+
+
+  // Получить кешированные документы объекта
+  static Future<List<DefectAttachment>> getCachedUnitAttachments(int unitId) async {
+    if (_database == null) return [];
+    
+    try {
+      final attachments = <DefectAttachment>[];
+
+      // Получаем pending attachments из новой таблицы
+      final pendingMaps = await _database!.query(
+        'pending_unit_attachments',
+        where: 'unit_id = ? AND sync_status = ?',
+        whereArgs: [unitId, 'pending'],
+      );
+
+      for (final map in pendingMaps) {
+        try {
+          attachments.add(DefectAttachment(
+            id: map['id'] as int,
+            defectId: unitId,
+            fileName: map['file_name'] as String,
+            filePath: map['file_path'] as String,
+            fileSize: map['file_size'] as int,
+            createdAt: map['created_at'] as String? ?? DateTime.now().toIso8601String(),
+          ));
+        } catch (e) {
+          print('Error parsing pending unit attachment data: $e');
+        }
+      }
+
+      // Также проверяем старую таблицу для совместимости
+      final results = await _database!.query(
+        'pending_sync',
+        where: 'operation_type = ? AND entity_id = ? AND entity_type = ?',
+        whereArgs: ['upload_unit_attachment', unitId, 'unit'],
+      );
+      
+      for (final row in results) {
+        try {
+          final data = jsonDecode(row['data'] as String);
+          attachments.add(DefectAttachment(
+            id: data['id'],
+            defectId: data['defectId'],
+            fileName: data['fileName'] ?? 'Без названия',
+            filePath: data['filePath'] ?? '',
+            fileSize: data['fileSize'] ?? 0,
+            createdAt: data['createdAt'],
+          ));
+        } catch (e) {
+          print('Error parsing unit attachment data: $e');
+        }
+      }
+      
+      return attachments;
+    } catch (e) {
+      print('Error getting cached unit attachments: $e');
+      return [];
+    }
+  }
+
+  // Сохранение unit attachment для последующей синхронизации
+  static Future<void> saveUnitAttachmentForSync(int unitId, DefectAttachment attachment) async {
+    try {
+      final db = _database;
+      if (db == null) {
+        print('Error: Database not initialized');
+        return;
+      }
+
+      await db.insert('pending_unit_attachments', {
+        'unit_id': unitId,
+        'id': attachment.id,
+        'file_name': attachment.fileName,
+        'file_path': attachment.filePath,
+        'file_size': attachment.fileSize,
+        'created_at': attachment.createdAt,
+        'sync_status': 'pending',
+        'created_timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      print('Saved unit attachment for sync: unitId=$unitId, fileName=${attachment.fileName}');
+    } catch (e) {
+      print('Error saving unit attachment for sync: $e');
+    }
+  }
+
+  // Получение pending unit attachments для синхронизации
+  static Future<List<Map<String, dynamic>>> getPendingUnitAttachments() async {
+    try {
+      final db = _database;
+      if (db == null) return [];
+
+      final maps = await db.query(
+        'pending_unit_attachments',
+        where: 'sync_status = ?',
+        whereArgs: ['pending'],
+      );
+
+      return maps;
+    } catch (e) {
+      print('Error getting pending unit attachments: $e');
+      return [];
+    }
+  }
+
+  // Помечаем unit attachment как синхронизированный
+  static Future<void> markUnitAttachmentAsSynced(int id) async {
+    try {
+      final db = _database;
+      if (db == null) return;
+
+      await db.update(
+        'pending_unit_attachments',
+        {'sync_status': 'synced'},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+
+      print('Marked unit attachment as synced: id=$id');
+    } catch (e) {
+      print('Error marking unit attachment as synced: $e');
+    }
+  }
+
+  // Удаление unit attachment из очереди синхронизации
+  static Future<void> removeUnitAttachmentFromSync(int id) async {
+    try {
+      final db = _database;
+      if (db == null) return;
+
+      await db.delete(
+        'pending_unit_attachments',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+
+      print('Removed unit attachment from sync: id=$id');
+    } catch (e) {
+      print('Error removing unit attachment from sync: $e');
+    }
+  }
+
+  // Добавление unit attachment в очередь на удаление
+  static Future<void> addUnitAttachmentToDeleteQueue(int attachmentId) async {
+    try {
+      final db = _database;
+      if (db == null) return;
+
+      await db.insert('pending_unit_deletions', {
+        'attachment_id': attachmentId,
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      print('Added unit attachment to delete queue: attachmentId=$attachmentId');
+    } catch (e) {
+      print('Error adding unit attachment to delete queue: $e');
+    }
+  }
+
+  // Синхронизация unit attachments
+  static Future<bool> syncUnitAttachments() async {
+    if (!_isOnline) return false;
+
+    try {
+      final pendingAttachments = await getPendingUnitAttachments();
+      
+      for (final pending in pendingAttachments) {
+        try {
+          final file = File(pending['file_path']);
+          if (!await file.exists()) {
+            await markUnitAttachmentAsSynced(pending['id']);
+            continue;
+          }
+
+          // Загружаем файл в storage
+          final originalFileName = pending['file_name'];
+          final unitId = pending['unit_id'];
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final fileName = '${timestamp}_$originalFileName';
+          final storagePath = 'unit_attachments/$unitId/$fileName';
+          
+          await DatabaseService.supabaseClient.storage
+              .from('attachments')
+              .upload(storagePath, file);
+          
+          // Получаем публичный URL файла
+          final publicUrl = DatabaseService.supabaseClient.storage
+              .from('attachments')
+              .getPublicUrl(storagePath);
+          
+          // Получаем текущего пользователя
+          final user = DatabaseService.supabaseClient.auth.currentUser;
+          final userId = user?.id;
+          
+          // Определяем MIME тип файла
+          final mimeType = _getMimeType(originalFileName);
+          
+          // Создаем запись в таблице attachments
+          final attachmentResponse = await DatabaseService.supabaseClient
+              .from('attachments')
+              .insert({
+                'path': publicUrl,
+                'storage_path': storagePath,
+                'original_name': originalFileName,
+                'mime_type': mimeType,
+                'uploaded_by': userId,
+                'created_by': userId,
+              })
+              .select()
+              .single();
+          
+          // Создаем связь в unit_attachments
+          await DatabaseService.supabaseClient
+              .from('unit_attachments')
+              .insert({
+                'unit_id': unitId,
+                'attachment_id': attachmentResponse['id'],
+              });
+
+          await markUnitAttachmentAsSynced(pending['id']);
+          print('Successfully synced unit attachment: $originalFileName');
+        } catch (e) {
+          print('Failed to sync unit attachment ${pending['file_name']}: $e');
+          return false;
+        }
+      }
+
+      return true;
+    } catch (e) {
+      print('Error during unit attachments sync: $e');
+      return false;
+    }
+  }
+
+  // Определение MIME типа файла
+  static String _getMimeType(String fileName) {
+    final extension = fileName.toLowerCase().split('.').last;
+    
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'bmp':
+        return 'image/bmp';
+      case 'webp':
+        return 'image/webp';
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'txt':
+        return 'text/plain';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'avi':
+        return 'video/avi';
+      default:
+        return 'application/octet-stream';
+    }
   }
 }

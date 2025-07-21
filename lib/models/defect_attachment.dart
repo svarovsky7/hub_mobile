@@ -41,6 +41,18 @@ class DefectAttachment {
     };
   }
 
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'defectId': defectId,
+      'fileName': fileName,
+      'filePath': filePath,
+      'fileSize': fileSize,
+      'createdBy': createdBy,
+      'createdAt': createdAt,
+    };
+  }
+
   String get fileExtension => fileName.split('.').last.toLowerCase();
   
   bool get isImage => ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(fileExtension);

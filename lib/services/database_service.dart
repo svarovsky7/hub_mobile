@@ -1374,4 +1374,219 @@ class DatabaseService {
       };
     }
   }
+
+  // Получить порядок сортировки этажей для проекта и здания
+  static Future<Map<String, String>> getUnitSortOrders(int projectId, String? building) async {
+    try {
+      if (!OfflineService.isOnline) {
+        // В офлайн режиме возвращаем пустую карту (будет использоваться сортировка по умолчанию)
+        return {};
+      }
+
+      final query = _supabase
+          .from('unit_sort_orders')
+          .select('floor, sort_direction')
+          .eq('project_id', projectId);
+      
+      if (building != null) {
+        query.eq('building', building);
+      } else {
+        query.isFilter('building', null);
+      }
+
+      final response = await query;
+      
+      final sortOrders = <String, String>{};
+      for (final item in (response as List)) {
+        final floor = item['floor']?.toString();
+        final direction = item['sort_direction']?.toString() ?? 'asc';
+        if (floor != null) {
+          sortOrders[floor] = direction;
+        }
+      }
+      
+      return sortOrders;
+    } catch (e) {
+      print('Error getting unit sort orders: $e');
+      return {};
+    }
+  }
+
+  // Методы для работы с документами архива
+  
+  // Получить документы по объекту из таблицы unit_attachments
+  static Future<List<DefectAttachment>> getUnitDocuments(int unitId) async {
+    try {
+      final allAttachments = <DefectAttachment>[];
+      
+      if (OfflineService.isOnline) {
+        // Получаем файлы с сервера
+        try {
+          final response = await _supabase
+              .from('unit_attachments')
+              .select('attachment_id, attachments(*)')
+              .eq('unit_id', unitId);
+          
+          for (final item in (response as List)) {
+            final attachment = item['attachments'];
+            if (attachment != null) {
+              allAttachments.add(DefectAttachment(
+                id: attachment['id'],
+                defectId: unitId, // Используем unitId для совместимости
+                fileName: attachment['original_name'] ?? 'Без названия',
+                filePath: attachment['path'] ?? '', // Используем path (публичный URL)
+                fileSize: 0, // Размер файла не хранится в attachments
+                createdBy: attachment['created_by'],
+                createdAt: attachment['created_at'] ?? DateTime.now().toIso8601String(),
+              ));
+            }
+          }
+        } catch (e) {
+          print('Error getting unit documents from server: $e');
+        }
+      }
+      
+      // Добавляем локальные файлы (pending sync)
+      final localAttachments = await OfflineService.getCachedUnitAttachments(unitId);
+      allAttachments.addAll(localAttachments);
+      
+      return allAttachments;
+    } catch (e) {
+      print('Error getting unit documents: $e');
+      // Fallback to local cache only
+      return await OfflineService.getCachedUnitAttachments(unitId);
+    }
+  }
+
+  // Получить документы по замечаниям для объекта
+  static Future<List<DefectAttachment>> getClaimDocumentsByUnit(int unitId) async {
+    try {
+      if (!OfflineService.isOnline) {
+        return [];
+      }
+      
+      // Сначала получаем claim_units для этого объекта
+      final claimUnits = await _supabase
+          .from('claim_units')
+          .select('claim_id')
+          .eq('unit_id', unitId);
+      
+      if ((claimUnits as List).isEmpty) {
+        return [];
+      }
+      
+      final claimIds = claimUnits.map((cu) => cu['claim_id']).toList();
+      
+      // Затем получаем attachments для этих claims
+      final response = await _supabase
+          .from('claim_attachments')
+          .select()
+          .inFilter('claim_id', claimIds);
+      
+      final attachments = <DefectAttachment>[];
+      for (final item in (response as List)) {
+        attachments.add(DefectAttachment(
+          id: item['id'],
+          defectId: item['claim_id'],
+          fileName: item['file_name'] ?? 'Без названия',
+          filePath: item['file_path'] ?? '',
+          fileSize: item['file_size'] ?? 0,
+          createdAt: item['uploaded_at'] ?? DateTime.now().toIso8601String(),
+        ));
+      }
+      
+      return attachments;
+    } catch (e) {
+      print('Error getting claim documents: $e');
+      return [];
+    }
+  }
+
+  // Получить документы по судебным делам для объекта
+  static Future<List<DefectAttachment>> getCourtDocumentsByUnit(int unitId) async {
+    try {
+      if (!OfflineService.isOnline) {
+        return [];
+      }
+      
+      // Сначала получаем court_case_units для этого объекта
+      final courtCaseUnits = await _supabase
+          .from('court_case_units')
+          .select('court_case_id')
+          .eq('unit_id', unitId);
+      
+      if ((courtCaseUnits as List).isEmpty) {
+        return [];
+      }
+      
+      final courtCaseIds = courtCaseUnits.map((ccu) => ccu['court_case_id']).toList();
+      
+      // Затем получаем attachments для этих court cases
+      final response = await _supabase
+          .from('court_case_attachments')
+          .select()
+          .inFilter('court_case_id', courtCaseIds);
+      
+      final attachments = <DefectAttachment>[];
+      for (final item in (response as List)) {
+        attachments.add(DefectAttachment(
+          id: item['id'],
+          defectId: item['court_case_id'],
+          fileName: item['file_name'] ?? 'Без названия',
+          filePath: item['file_path'] ?? '',
+          fileSize: item['file_size'] ?? 0,
+          createdAt: item['uploaded_at'] ?? DateTime.now().toIso8601String(),
+        ));
+      }
+      
+      return attachments;
+    } catch (e) {
+      print('Error getting court documents: $e');
+      return [];
+    }
+  }
+
+  // Получить файлы из писем для объекта
+  static Future<List<DefectAttachment>> getLetterDocumentsByUnit(int unitId) async {
+    try {
+      if (!OfflineService.isOnline) {
+        return [];
+      }
+      
+      // Сначала получаем letter_units для этого объекта
+      final letterUnits = await _supabase
+          .from('letter_units')
+          .select('letter_id')
+          .eq('unit_id', unitId);
+      
+      if ((letterUnits as List).isEmpty) {
+        return [];
+      }
+      
+      final letterIds = letterUnits.map((lu) => lu['letter_id']).toList();
+      
+      // Затем получаем attachments для этих letters
+      final response = await _supabase
+          .from('letter_attachments')
+          .select()
+          .inFilter('letter_id', letterIds);
+      
+      final attachments = <DefectAttachment>[];
+      for (final item in (response as List)) {
+        attachments.add(DefectAttachment(
+          id: item['id'],
+          defectId: item['letter_id'],
+          fileName: item['file_name'] ?? 'Без названия',
+          filePath: item['file_path'] ?? '',
+          fileSize: item['file_size'] ?? 0,
+          createdAt: item['uploaded_at'] ?? DateTime.now().toIso8601String(),
+        ));
+      }
+      
+      return attachments;
+    } catch (e) {
+      print('Error getting letter documents: $e');
+      return [];
+    }
+  }
 }
